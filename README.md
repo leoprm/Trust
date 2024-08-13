@@ -32,15 +32,19 @@ Mantenimiento: Se asegura el funcionamiento continuo y eficiente de las solucion
 Reciclaje: Los recursos son reciclados y reutilizados, minimizando el desperdicio y promoviendo la sostenibilidad.
 
 Participación y Evaluación del Usuario
+
 Los usuarios son el eje central del sistema Trust. Su participación activa les permite ganar XP (puntos de experiencia), lo que incrementa su nivel dentro del sistema y a su vez su sueldo mensual de Berries. La votación en Trust es anónima y segura, lo que garantiza que todas las opiniones sean valoradas de manera justa.
 
 Gobernanza y Adaptabilidad
+
 Trust es un sistema de código abierto, lo que permite que cualquiera pueda utilizarlo como base para crear versiones personalizadas según las necesidades específicas de diferentes comunidades o grupos. La financiación del sistema se sustenta en la creación y gestión de su propia moneda, Berry, que circula dentro de la economía del sistema y se genera a través de la participación en proyectos.
 
 Desafíos
+
 Algunos de los desafíos que enfrenta Trust incluyen la escalabilidad del sistema, garantizar su accesibilidad para todos los usuarios y gestionar la complejidad inherente de un sistema tan amplio y multifacético.
 
 Objetivo
+
 El objetivo final de Trust es crear una plataforma económica justa y sostenible, en la que todos los usuarios tengan la oportunidad de participar activamente en la toma de decisiones que afectan su comunidad y su vida diaria. A través de este sistema, se busca mejorar la calidad de vida y abordar una amplia gama de desafíos sociales de manera colectiva y transparente.
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
