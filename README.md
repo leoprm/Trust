@@ -2,6 +2,7 @@
 El sistema Trust es una innovadora plataforma socioeconómica diseñada para fomentar una sociedad más justa, equitativa y eficiente. A través de la utilización de tecnologías avanzadas como Blockchain, Machine Learning y Big Data, Trust busca ofrecer un marco que sea no solo adaptable, sino también escalable a diferentes contextos y necesidades.
 
 Estructura del Sistema
+
 En el núcleo de Trust se encuentra una moneda digital única llamada Berries, que es esencial para las transacciones dentro del sistema. Los usuarios pueden ganar Berries participando activamente en el desarrollo y la implementación de proyectos que aborden necesidades comunitarias. Este enfoque descentralizado y democrático permite que las decisiones importantes, como la asignación de recursos y el desarrollo de proyectos, se realicen mediante el voto de los usuarios.
 
 El sistema se organiza en tres componentes clave:
@@ -52,6 +53,7 @@ El objetivo final de Trust es crear una plataforma económica justa y sostenible
 The Trust system is an innovative socio-economic platform designed to foster a more just, equitable, and efficient society. By leveraging advanced technologies such as Blockchain, Machine Learning, and Big Data, Trust aims to offer a framework that is not only adaptable but also scalable to different contexts and needs.
 
 System Structure
+
 At the core of Trust is a unique digital currency called Berries, which is essential for transactions within the system. Users can earn Berries by actively participating in the development and implementation of projects that address community needs. This decentralized and democratic approach allows important decisions, such as resource allocation and project development, to be made through user voting.
 
 The system is organized into three key components:
