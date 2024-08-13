@@ -78,14 +78,18 @@ Maintenance: Continuous and efficient operation of the implemented solutions is 
 Recycling: Resources are recycled and reused, minimizing waste and promoting sustainability.
 
 User Participation and Evaluation
+
 Users are the central axis of the Trust system. Their active participation allows them to earn XP (experience points), which increases their level within the system and, in turn, their monthly Berries earnings. Voting in Trust is anonymous and secure, ensuring that all opinions are valued fairly.
 
 Governance and Adaptability
+
 Trust is an open-source system, allowing anyone to use it as a foundation to create customized versions according to the specific needs of different communities or groups. The system's funding is supported by the creation and management of its own currency, Berry, which circulates within the system's economy and is generated through participation in projects.
 
 Challenges
+
 Some of the challenges Trust faces include the scalability of the system, ensuring its accessibility for all users, and managing the inherent complexity of such a broad and multifaceted system.
 
 Objective
+
 The ultimate goal of Trust is to create a fair and sustainable economic platform where all users have the opportunity to actively participate in decision-making that affects their community and daily lives. Through this system, it aims to improve the quality of life and address a wide range of social challenges collectively and transparently.
 
