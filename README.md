@@ -42,3 +42,50 @@ Algunos de los desafíos que enfrenta Trust incluyen la escalabilidad del sistem
 
 Objetivo
 El objetivo final de Trust es crear una plataforma económica justa y sostenible, en la que todos los usuarios tengan la oportunidad de participar activamente en la toma de decisiones que afectan su comunidad y su vida diaria. A través de este sistema, se busca mejorar la calidad de vida y abordar una amplia gama de desafíos sociales de manera colectiva y transparente.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+The Trust system is an innovative socio-economic platform designed to foster a more just, equitable, and efficient society. By leveraging advanced technologies such as Blockchain, Machine Learning, and Big Data, Trust aims to offer a framework that is not only adaptable but also scalable to different contexts and needs.
+
+System Structure
+At the core of Trust is a unique digital currency called Berries, which is essential for transactions within the system. Users can earn Berries by actively participating in the development and implementation of projects that address community needs. This decentralized and democratic approach allows important decisions, such as resource allocation and project development, to be made through user voting.
+
+The system is organized into three key components:
+
+Turtle: Responsible for the exploitation and efficient management of resources, ensuring they are used sustainably and equitably.
+
+Trunk: Acts as a coordination hub that facilitates interactions between different actors within the system and manages internal relations and communications.
+
+Branches: In charge of developing and implementing specific projects that arise from the needs expressed by the community. These projects are evaluated and prioritized through a democratic process.
+
+Project Development Phases
+The project development process in Trust is carried out in several phases, including:
+
+Needs Identification: Where users express their needs or desires, which are then recorded and evaluated.
+
+Idea Generation: A phase in which a variety of potential solutions to the identified needs are proposed.
+
+Research: The selected ideas are researched and refined to determine their feasibility.
+
+Project Development: The project is planned and executed, following a collaborative approach.
+
+Production: The developed solutions are produced and prepared for distribution.
+
+Distribution: The products or services generated are distributed among the community of users.
+
+Maintenance: Continuous and efficient operation of the implemented solutions is ensured.
+
+Recycling: Resources are recycled and reused, minimizing waste and promoting sustainability.
+
+User Participation and Evaluation
+Users are the central axis of the Trust system. Their active participation allows them to earn XP (experience points), which increases their level within the system and, in turn, their monthly Berries earnings. Voting in Trust is anonymous and secure, ensuring that all opinions are valued fairly.
+
+Governance and Adaptability
+Trust is an open-source system, allowing anyone to use it as a foundation to create customized versions according to the specific needs of different communities or groups. The system's funding is supported by the creation and management of its own currency, Berry, which circulates within the system's economy and is generated through participation in projects.
+
+Challenges
+Some of the challenges Trust faces include the scalability of the system, ensuring its accessibility for all users, and managing the inherent complexity of such a broad and multifaceted system.
+
+Objective
+The ultimate goal of Trust is to create a fair and sustainable economic platform where all users have the opportunity to actively participate in decision-making that affects their community and daily lives. Through this system, it aims to improve the quality of life and address a wide range of social challenges collectively and transparently.
+
