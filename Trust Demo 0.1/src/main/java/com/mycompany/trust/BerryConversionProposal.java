@@ -1,5 +1,7 @@
 package com.mycompany.trust;
 
+import java.util.Date;
+
 public class BerryConversionProposal extends Proposal {
     private double conversionPercentage;
     private int conversionPeriod;
@@ -33,6 +35,15 @@ public class BerryConversionProposal extends Proposal {
         setVotes(votes);
     }
 
+    /**
+     * Constructor for loading from database with creation date
+     */
+    public BerryConversionProposal(String proposer, double conversionPercentage, int conversionPeriod, Date creationDate) {
+        super("Berry Conversion Proposal", "Proposal for adjusting berry conversion rates and periods", proposer, creationDate);
+        this.conversionPercentage = conversionPercentage;
+        this.conversionPeriod = conversionPeriod;
+    }
+
     // Getters and setters specific to BerryConversionProposal
     public double getConversionPercentage() {
         return conversionPercentage;
@@ -52,6 +63,17 @@ public class BerryConversionProposal extends Proposal {
     
     public void addVote() {
         setVotes(getVotes() + 1);
+    }
+
+    // Add these methods for UI compatibility
+    public String getFromBerryType() {
+        return "Standard";
+    }
+    public String getToBerryType() {
+        return "Premium";
+    }
+    public double getConversionRate() {
+        return conversionPercentage;
     }
 
     @Override

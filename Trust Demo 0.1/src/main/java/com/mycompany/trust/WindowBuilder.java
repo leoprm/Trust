@@ -97,22 +97,29 @@ public class WindowBuilder extends Application {
                 return;
             }
 
-            if (!TrustSystem.users.containsKey(username)) {
-                messageLabel.setText("User does not exist");
+            try {
+                User user = DatabaseManager.getUser(username);
+                if (user == null) {
+                    messageLabel.setText("User does not exist");
+                    return;
+                }
+
+                if (!user.checkPassword(password)) {
+                    messageLabel.setText("Incorrect password");
+                    return;
+                }
+
+                // Login successful - store user credentials in session
+                SessionManager.setCurrentUser(user, username, password);
+                
+                messageLabel.setText("");
+                messageLabel.setStyle("-fx-text-fill: #00FF00;");
+                messageLabel.setText("Login successful!");
+            } catch (SQLException e) {
+                System.err.println("Error during login for user " + username + ": " + e.getMessage());
+                messageLabel.setText("Database error occurred during login");
                 return;
             }
-
-            if (!TrustSystem.users.get(username).checkPassword(password)) {
-                messageLabel.setText("Incorrect password");
-                return;
-            }
-
-            // Login successful - store user credentials in session
-            SessionManager.setCurrentUser(TrustSystem.users.get(username), username, password);
-            
-            messageLabel.setText("");
-            messageLabel.setStyle("-fx-text-fill: #00FF00;");
-            messageLabel.setText("Login successful!");
             
             // Start the main TrustSystem
             TrustSystem.startMainSystem(primaryStage);
@@ -131,16 +138,13 @@ public class WindowBuilder extends Application {
                 return;
             }
 
-            if (TrustSystem.users.containsKey(username)) {
+            if (DatabaseManager.userExists(username)) {
                 messageLabel.setText("User already exists");
                 return;
             }
 
             // Create user in the database
             DatabaseManager.createUser(username, password);
-            
-            // Reload user data from the database to ensure it's properly registered in the system
-            DatabaseManager.loadUsers();
             
             messageLabel.setStyle("-fx-text-fill: #00FF00;");
             messageLabel.setText("User created successfully!");
@@ -158,8 +162,6 @@ public class WindowBuilder extends Application {
             // Initialize database connection pool first
             DatabaseConnection.initializeDataSource();
             
-            // Then load all data before showing the login window
-            DatabaseManager.loadAllData();
             launch(args);
         } catch (SQLException e) {
             System.err.println("Failed to load data: " + e.getMessage());

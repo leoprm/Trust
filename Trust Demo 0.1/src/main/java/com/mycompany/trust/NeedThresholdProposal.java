@@ -1,6 +1,7 @@
 package com.mycompany.trust;
 
 import java.io.Serializable;
+import java.util.Date;
 
 /**
  * A proposal type that defines thresholds for determining whether a Branch is a Need or a Desire
@@ -43,6 +44,16 @@ public class NeedThresholdProposal extends Proposal implements Serializable {
         setVotes(votes);
     }
     
+    /**
+     * Constructor for loading from database with creation date
+     */
+    public NeedThresholdProposal(String proposer, double globalThresholdPercent, double personalThresholdPercent, int timeLimit, Date creationDate) {
+        super("Need Threshold Proposal", "Proposal for defining when a Branch is considered a Need vs a Desire", proposer, creationDate);
+        this.globalThresholdPercent = globalThresholdPercent;
+        this.personalThresholdPercent = personalThresholdPercent;
+        this.timeLimit = timeLimit;
+    }
+    
     // Getters and setters
     public double getGlobalThresholdPercent() {
         return globalThresholdPercent;
@@ -66,6 +77,11 @@ public class NeedThresholdProposal extends Proposal implements Serializable {
 
     public void setTimeLimit(int timeLimit) {
         this.timeLimit = timeLimit;
+    }
+    
+    // Add this method for UI compatibility
+    public double getThreshold() {
+        return globalThresholdPercent;
     }
     
     public void addVote() {

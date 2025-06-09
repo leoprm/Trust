@@ -10,12 +10,8 @@ public class NeedService {
             DialogFactory.showError("Need name cannot be empty");
             return;
         }
-        
-        int needId = DatabaseManager.createNeed(needName);
+          int needId = DatabaseManager.createNeed(needName);
         if (needId != -1) {
-            Need need = new Need(needName);
-            need.setId(needId);
-            TrustSystem.needs.put(needId, need);
             DialogFactory.showInfo("Need Created", "Need '" + needName + "' was created with ID: " + needId);
         } else {
             DialogFactory.showError("Failed to create need. Database error occurred.");
@@ -58,17 +54,22 @@ public class NeedService {
     public static int calculateTotalPoints(Need need) {
         return need.getSupporters().values().stream().mapToInt(Integer::intValue).sum();
     }
-    
-    public static int getTotalNeedPoints(int id) {
-        if (!TrustSystem.needs.containsKey(id)) {
+      public static int getTotalNeedPoints(int id) {
+        try {
+            Need need = DatabaseManager.getNeed(id);
+            if (need == null) {
+                return 0;
+            }
+            
+            Map<String, Integer> supporters = need.getSupporters();
+            int totalPoints = 0;
+            for (int points : supporters.values()) {
+                totalPoints += points;
+            }
+            return totalPoints;
+        } catch (SQLException e) {
+            System.err.println("Error loading need " + id + ": " + e.getMessage());
             return 0;
         }
-        
-        Map<String, Integer> supporters = TrustSystem.needs.get(id).getSupporters();
-        int totalPoints = 0;
-        for (int points : supporters.values()) {
-            totalPoints += points;
-        }
-        return totalPoints;
     }
 }

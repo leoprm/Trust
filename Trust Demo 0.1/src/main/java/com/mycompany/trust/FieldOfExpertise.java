@@ -13,6 +13,7 @@ public class FieldOfExpertise implements Serializable {
     private String name;
     private String description;
     private Integer parentId; // Added parentId field (use Integer to allow null)
+    private boolean active = true; // Add active field with default value true
 
     // Default constructor (needed for some frameworks/serialization)
     public FieldOfExpertise() { }
@@ -60,5 +61,21 @@ public class FieldOfExpertise implements Serializable {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+    
+    /**
+     * Checks if this field of expertise is active
+     * @return true if active, false if inactive
+     */
+    public boolean isActive() {
+        return this.active;
+    }
+    
+    /**
+     * Sets the active status of this field of expertise
+     * @param active true to activate, false to deactivate
+     */
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

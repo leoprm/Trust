@@ -1,17 +1,15 @@
 package com.mycompany.trust;
 
 import java.sql.SQLException;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
+
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
@@ -19,23 +17,36 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Slider;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ListCell;
-import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.DialogPane;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.ButtonBar;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.GridPane;
-import java.util.Optional;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.TreeView;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeCell;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Alert;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.Node;
-import javafx.scene.control.ProgressBar;
+import javafx.beans.property.BooleanProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.scene.control.SplitPane;
+
+import javafx.application.Platform;
+
+import java.time.LocalDateTime;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import javafx.application.HostServices;
 
 public class TrustSystem extends Application {
 
@@ -44,241 +55,64 @@ public class TrustSystem extends Application {
     public static Map<Integer, BerryValidityProposal> berryValidityProposals = new HashMap<>();
     public static Map<Integer, BerryConversionProposal> berryConversionProposals = new HashMap<>();
     public static Map<Integer, NeedThresholdProposal> needThresholdProposals = new HashMap<>();
-    // Data collections
-    public static Map<String, User> users = new HashMap<>();
-    public static Map<Integer, Need> needs = new HashMap<>();
-    public static Map<Integer, Idea> ideas = new HashMap<>();
-    public static Map<Integer, Branch> branches = new HashMap<>();
     public static Map<String, List<Berry>> userBerries = new HashMap<>();
     public static Map<Integer, FieldOfExpertise> fieldsOfExpertise = new HashMap<>();
-    // Obsolete specific proposal maps removed.
-    
-    // Add static references to main UI components
+
+    // Fields of Expertise Manager UI components
+    private static TreeView<FieldOfExpertise> currentFieldsTreeView;
+    private static VBox currentFieldDetailsArea;
+    private static FieldOfExpertise selectedFieldForDetails;
+
     private static BorderPane mainLayout;
     private static Stage primaryStage;
-    
-    // Initialize the system
-    public static void initialize() {
-        try {
-            // Initialize database
-            DatabaseConnection.initializeDataSource();
-            
-            // Load data from database
-            loadUsersFromDatabase();
-            loadNeedsFromDatabase();
-            loadIdeasFromDatabase();
-            loadBranchesFromDatabase();
-            loadBerriesFromDatabase();
-            loadProposalsFromDatabase();
-            loadFieldsOfExpertiseFromDatabase(); // NEW
-                 
-            // Check for and remove expired berries
-            BerryService.checkAndRemoveExpiredBerries();
-                 
-        } catch (SQLException e) {
-            DialogFactory.showError("Database initialization error: " + e.getMessage());
-            System.exit(1);
-        }
-    }
-    
-    // Redundant loadAllData method removed.
-    // Load data methods
-    private static void loadUsersFromDatabase() throws SQLException {
-        users = DatabaseManager.loadAllUsers();
-    }
-    
-    private static void loadNeedsFromDatabase() throws SQLException {
-        needs = DatabaseManager.loadAllNeeds();
-    }
-    
-    private static void loadIdeasFromDatabase() throws SQLException {
-        ideas = DatabaseManager.loadAllIdeas();
-    }
-    
-    private static void loadBranchesFromDatabase() throws SQLException {
-        branches = DatabaseManager.loadAllBranches();
-    }
-    
-    private static void loadBerriesFromDatabase() throws SQLException {
-        userBerries = DatabaseManager.loadAllBerries();
-    }
-    
-    private static void loadProposalsFromDatabase() throws SQLException {
-        // Load proposals into their specific maps using the new DB methods
-        levelProposals = DatabaseManager.loadAllLevelProposals();
-        berryEarningProposals = DatabaseManager.loadAllBerryEarningProposals();
-        berryValidityProposals = DatabaseManager.loadAllBerryValidityProposals();
-        berryConversionProposals = DatabaseManager.loadAllBerryConversionProposals();
-        needThresholdProposals = DatabaseManager.loadAllNeedThresholdProposals();
+    private static HostServices appHostServices;
 
-        // Initialize system parameters from active proposals
-        updateSystemParametersFromActiveProposals();
-    }
-    
-    private static void updateSystemParametersFromActiveProposals() {
-        // Find the active proposals (highest vote count) and update system parameters
-
-        // Level parameters
-        LevelProposal activeLevelProposal = findActiveProposal(levelProposals);
-        if (activeLevelProposal != null) {
-            SystemParameters.setXpIncreasePercentage(activeLevelProposal.getXpIncreasePercentage());
-            SystemParameters.setXpThreshold(activeLevelProposal.getXpThreshold());
-            System.out.println("System Parameters Updated from Level Proposal #" + activeLevelProposal.getId());
-        } else {
-            System.out.println("No active Level Proposal found. Using default parameters.");
-        }
-
-        // Berry earning parameter
-        BerryEarningProposal activeBerryEarningProposal = findActiveProposal(berryEarningProposals);
-        if (activeBerryEarningProposal != null) {
-            SystemParameters.setInitialLevelOneBerryEarning(activeBerryEarningProposal.getInitialLevelOneBerryEarning());
-            System.out.println("System Parameters Updated from Berry Earning Proposal #" + activeBerryEarningProposal.getId());
-        } else {
-            System.out.println("No active Berry Earning Proposal found. Using default parameters.");
-        }
-
-        // Berry validity parameter
-        BerryValidityProposal activeBerryValidityProposal = findActiveProposal(berryValidityProposals);
-        if (activeBerryValidityProposal != null) {
-            SystemParameters.setBerryValidityTime(activeBerryValidityProposal.getValidityMonths());
-            System.out.println("System Parameters Updated from Berry Validity Proposal #" + activeBerryValidityProposal.getId());
-        } else {
-            System.out.println("No active Berry Validity Proposal found. Using default parameters.");
-        }
-
-        // Berry conversion parameters
-        BerryConversionProposal activeBerryConversionProposal = findActiveProposal(berryConversionProposals);
-        if (activeBerryConversionProposal != null) {
-            SystemParameters.setConversionPercentage(activeBerryConversionProposal.getConversionPercentage());
-            SystemParameters.setConversionPeriod(activeBerryConversionProposal.getConversionPeriod());
-            System.out.println("System Parameters Updated from Berry Conversion Proposal #" + activeBerryConversionProposal.getId());
-        } else {
-            System.out.println("No active Berry Conversion Proposal found. Using default parameters.");
-        }
-        
-        // Need threshold parameters
-        NeedThresholdProposal activeNeedThresholdProposal = findActiveProposal(needThresholdProposals);
-        if (activeNeedThresholdProposal != null) {
-            SystemParameters.setGlobalNeedThresholdPercent(activeNeedThresholdProposal.getGlobalThresholdPercent());
-            SystemParameters.setPersonalNeedThresholdPercent(activeNeedThresholdProposal.getPersonalThresholdPercent());
-            SystemParameters.setNeedTimeLimit(activeNeedThresholdProposal.getTimeLimit());
-            
-            // Log the update
-            System.out.println("System Parameters Updated from Need Threshold Proposal #" + activeNeedThresholdProposal.getId());
-            
-        } else {
-            System.out.println("No active Need Threshold Proposal found. Using default parameters.");
-        }
-    }
-    
-    // Helper method to find the active proposal (e.g., highest votes) from a map
-    private static <T extends Proposal> T findActiveProposal(Map<Integer, T> proposals) {
-        if (proposals == null || proposals.isEmpty()) {
-            return null;
-        }
-        // Return the one with the most votes
-        return proposals.values().stream()
-                .max(Comparator.comparingInt(Proposal::getVotes))
-                .orElse(null);
-    }
-    
-    // User registration method
-    public static boolean registerUser(String username, String password, String displayName) {
-        if (users.containsKey(username)) {
-            return false;
-        }
-        
-        try {
-            User newUser = new User(username, displayName);
-            newUser.setPassword(password);
-            
-            // Save to database
-            int userId = DatabaseManager.saveUser(newUser);
-            
-            if (userId != -1) {
-                newUser.setId(userId);
-                users.put(username, newUser);
-                return true;
-            }
-        } catch (SQLException e) {
-            DialogFactory.showError("Error registering user: " + e.getMessage());
-        }
-        
-        return false;
-    }
-    
-    // Check for level up
-    public static boolean checkForLevelUp(User user) throws SQLException {
-        int currentXp = user.getXp();
-        int currentLevel = user.getLevel();
-        int xpThreshold = SystemParameters.calculateXpThreshold(currentLevel);
-        
-        if (currentXp >= xpThreshold) {
-            // Level up the user
-            user.setLevel(currentLevel + 1);
-            user.setPoints(user.getPoints() + 10); // Bonus points for leveling up
-            
-            // Update in database
-            DatabaseManager.updateUser(user);
-            
-            // Return true to indicate level up occurred
-            return true;
-        }
-        
-        return false;
-    }
-    
-    // Main UI entry points 
-    @Override
+ @Override
     public void start(Stage primaryStage) {
+        appHostServices = getHostServices();
         startMainSystem(primaryStage);
     }
 
     public static void startMainSystem(Stage primaryStage) {
         try {
-            TrustSystem.primaryStage = primaryStage; // Store reference to the primary stage
+            // Initialize the system (load data from database)
+            initialize();
             
-            // Create the main menu scene
-            mainLayout = new BorderPane(); // Use the class field instead of local variable
-            mainLayout.setPrefSize(800, 600);   
+            TrustSystem.primaryStage = primaryStage;
+
+            mainLayout = new BorderPane();
+            mainLayout.setPrefSize(800, 600);
             mainLayout.setStyle("-fx-background-color: #2e2e2e;");
-            
-            // Create a welcome label
+
             Label welcomeLabel = new Label("Welcome, " + SessionManager.getCurrentUser().getDisplayName() + "!");
             welcomeLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 24px; -fx-padding: 20px;");
             mainLayout.setTop(welcomeLabel);
-            
-            // Create a sidebar with navigation buttons
+
             VBox sidebar = new VBox(10);
             sidebar.setPadding(new Insets(20));
             sidebar.setStyle("-fx-background-color: #1e1e1e;");
             sidebar.setPrefWidth(200);
-            
-            // Create menu buttons
+
             Button needsButton = UIStyleManager.createMenuButton("Needs", _ -> handleShowNeeds());
             Button ideasButton = UIStyleManager.createMenuButton("Ideas", _ -> handleShowIdeas());
             Button branchesButton = UIStyleManager.createMenuButton("Branches", _ -> handleShowBranches());
             Button traceButton = UIStyleManager.createMenuButton("Trace", _ -> handleShowTrace());
             Button proposalsButton = UIStyleManager.createMenuButton("Proposals", _ -> handleShowProposals());
-            Button jobsButton = UIStyleManager.createMenuButton("Jobs", _ -> handleShowJobs()); // NEW Jobs button
-            Button notificationsButton = UIStyleManager.createMenuButton("Notifications", _ -> handleShowNotifications()); // Existing notifications
+            Button jobsButton = UIStyleManager.createMenuButton("Jobs", _ -> handleShowJobs());
+            Button notificationsButton = UIStyleManager.createMenuButton("Notifications", _ -> handleShowNotifications());
             Button berriesButton = UIStyleManager.createMenuButton("Berries", _ -> handleShowBerries());
             Button profileButton = UIStyleManager.createMenuButton("My Profile", _ -> handleShowProfile());
             Button logoutButton = UIStyleManager.createMenuButton("Logout", _ -> SessionManager.handleLogout());
-            
-            // Add buttons to sidebar
+
             sidebar.getChildren().addAll(
                 needsButton, ideasButton, branchesButton, traceButton,
-                proposalsButton, jobsButton, notificationsButton, // Added Jobs button
-                 berriesButton, profileButton,
-                logoutButton
+                proposalsButton, jobsButton, notificationsButton,
+                berriesButton, profileButton, logoutButton
             );
             mainLayout.setLeft(sidebar);
-            
-            // Show the dashboard content
+
             showDashboard();
-            
-            // Create the scene and set it on the primary stage
+
             Scene scene = new Scene(mainLayout);
             primaryStage.setScene(scene);
             primaryStage.setTitle("Trust System - Main");
@@ -290,3389 +124,3806 @@ public class TrustSystem extends Application {
         }
     }
 
-    private static void handleShowNotifications() {
-    try {
-        // Get current user
-        User currentUser = SessionManager.getCurrentUser();
-        if (currentUser == null) {
-            DialogFactory.showError("You must be logged in to view notifications.");
-            return;
-        }
-        
-        // Create a BorderPane for notifications layout
-        BorderPane notificationsLayout = new BorderPane();
-        notificationsLayout.setPadding(new Insets(20));
-        notificationsLayout.setStyle("-fx-background-color: #2e2e2e;");
-        
-        // Create title label
-        Label titleLabel = new Label("Your Notifications");
-        titleLabel.setStyle("-fx-font-size: 24px; -fx-text-fill: #d9d9d9; -fx-font-weight: bold;");
-        BorderPane.setAlignment(titleLabel, Pos.CENTER);
-        
-        // Create container for notifications
-        VBox notificationsContainer = new VBox(15);
-        notificationsContainer.setPadding(new Insets(20, 0, 0, 0));
-        
-        // Collect branches related to needs and ideas the user has supported
-        List<Branch> relevantBranches = new ArrayList<>();
-        Map<Integer, Branch.Phase> lastSeenPhases = new HashMap<>();
-        
-        // Check supported or affected needs
-        for (Need need : needs.values()) {
-            if (need.getSupporters().containsKey(currentUser.getUsername()) || 
-                need.getAffectedUsers().containsKey(currentUser.getUsername())) {
-                
-                // Find branches associated with this need
-                for (Branch branch : branches.values()) {
-                    if (branch.getNeeds().contains(need.getId())) {
-                        relevantBranches.add(branch);
-                        // For now, assume last seen phase is one behind current (we'll add proper tracking later)
-                        Branch.Phase[] phases = Branch.Phase.values();
-                        for (int i = 1; i < phases.length; i++) {
-                            if (phases[i] == branch.getCurrentPhase()) {
-                                lastSeenPhases.put(branch.getId(), phases[i-1]);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Check supported ideas
-        for (Idea idea : ideas.values()) {
-            // Check if user voted for this idea
-            if (idea.getSupporters().contains(currentUser.getUsername())) {
-                // Find branches associated with this idea
-                for (Branch branch : branches.values()) {
-                    if (branch.getIdeaId() == idea.getId() && !relevantBranches.contains(branch)) {
-                        relevantBranches.add(branch);
-                        // For now, assume last seen phase is one behind current (we'll add proper tracking later)
-                        Branch.Phase[] phases = Branch.Phase.values();
-                        for (int i = 1; i < phases.length; i++) {
-                            if (phases[i] == branch.getCurrentPhase()) {
-                                lastSeenPhases.put(branch.getId(), phases[i-1]);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // If there are no notifications, show a message
-        if (relevantBranches.isEmpty()) {
-            Label emptyLabel = new Label("You don't have any notifications.");
-            emptyLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 16px;");
-            notificationsContainer.getChildren().add(emptyLabel);
-        } else {
-            // Create notification cards for each branch
-            for (Branch branch : relevantBranches) {
-                // Create notification card
-                VBox notificationCard = createNotificationCard(branch, lastSeenPhases.get(branch.getId()));
-                notificationsContainer.getChildren().add(notificationCard);
-            }
-        }
-        
-        // Create scrollable view for notifications
-        ScrollPane scrollPane = new ScrollPane(notificationsContainer);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background: #2e2e2e; -fx-background-color: #2e2e2e;");
-        
-        // Add components to layout
-        notificationsLayout.setTop(titleLabel);
-        notificationsLayout.setCenter(scrollPane);
-        
-        // Set the notifications content in the main window
-        setMainContent(notificationsLayout, "Notifications");
-        
-    } catch (Exception e) {
-        e.printStackTrace();
-        DialogFactory.showError("Error displaying notifications: " + e.getMessage());
-    }
-}
-
-private static VBox createNotificationCard(Branch branch, Branch.Phase lastSeenPhase) {
-    // Create card container
-    VBox card = new VBox(10);
-    card.setPadding(new Insets(15));
-    card.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 5;");
-    
-    // Branch name and phase info
-    String phaseName = branch.getCurrentPhase().toString();
-    String ideaName = "N/A";
-    if (branch.getIdeaId() > 0 && ideas.containsKey(branch.getIdeaId())) {
-        ideaName = ideas.get(branch.getIdeaId()).getName();
-    }
-    
-    // Create header with branch name
-    Label nameLabel = new Label(branch.getName());
-    nameLabel.setStyle("-fx-font-size: 18px; -fx-text-fill: #ffffff; -fx-font-weight: bold;");
-    
-    // Create labels for idea and phase
-    Label ideaLabel = new Label("Associated Idea: " + ideaName);
-    ideaLabel.setStyle("-fx-text-fill: #d9d9d9;");
-    
-    Label phaseChangeLabel = new Label("Phase changed from " + 
-                                       (lastSeenPhase != null ? lastSeenPhase.toString() : "previous phase") + 
-                                       " to " + phaseName);
-    phaseChangeLabel.setStyle("-fx-text-fill: #d9d9d9;");
-    
-    // Add phase details if applicable
-    VBox phaseDetails = new VBox(5);
-    phaseDetails.setPadding(new Insets(10, 0, 10, 0));
-    
-    // Add satisfaction rating UI if there's a previous phase
-    if (lastSeenPhase != null) {
-        User currentUser = SessionManager.getCurrentUser();
-        Rating existingRating = null;
-
-        // Check if the user has already rated this specific phase
-        try {
-            existingRating = DatabaseManager.getRatingByUserForBranchPhase(
-                    currentUser.getUsername(),
-                    branch.getId(),
-                    lastSeenPhase.name() // Check against the phase being rated
-            );
-        } catch (SQLException e) {
-            System.err.println("Error checking for existing rating: " + e.getMessage());
-            // Handle error appropriately, maybe disable rating for safety
-        }
-
-        // If already rated, show the previous rating
-        if (existingRating != null) {
-            Label alreadyRatedLabel = new Label(
-                    "You already rated the " + lastSeenPhase.toString() +
-                    " phase: " + existingRating.getRatingValue() + "%");
-            alreadyRatedLabel.setStyle("-fx-text-fill: #76ff76;"); // Green text for confirmation
-            phaseDetails.getChildren().add(alreadyRatedLabel);
-
-            // --- Auxiliary Code Trigger ---
-            // You could add a button here (maybe only visible to admins?)
-            // that calls a method to delete the existing rating, allowing a re-rate.
-            /*
-            if (currentUser.isAdmin()) { // Assuming an isAdmin() check exists
-                 Button allowReRateButton = UIStyleManager.createMenuButton("Allow Re-rate (Admin)", _ -> {
-                     try {
-                         DatabaseManager.deleteRating(existingRating.getId()); // Need to create deleteRating method
-                         // Refresh the notification view or this specific card
-                         handleShowNotifications(); // Simplest refresh
-                     } catch (SQLException ex) {
-                         DialogFactory.showError("Error deleting rating: " + ex.getMessage());
-                     }
-                 });
-                 phaseDetails.getChildren().add(allowReRateButton);
-            }
-            */
-            // --- End Auxiliary Code ---
-
-        } else {
-            // Not rated yet, show the rating UI
-            Label rateLabel = new Label("Rate your satisfaction with the " + lastSeenPhase.toString() + " phase:");
-            rateLabel.setStyle("-fx-text-fill: #d9d9d9;");
-
-            Slider satisfactionSlider = new Slider(0, 100, 50);
-            satisfactionSlider.setShowTickLabels(true);
-            satisfactionSlider.setShowTickMarks(true);
-            satisfactionSlider.setMajorTickUnit(25);
-            satisfactionSlider.setMinorTickCount(5);
-            satisfactionSlider.setBlockIncrement(10);
-            
-            // Create labels for min/max values
-            HBox sliderLabels = new HBox();
-            sliderLabels.setAlignment(Pos.CENTER);
-            
-            Label minLabel = new Label("0%");
-            minLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            Label maxLabel = new Label("100%");
-            maxLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-            sliderLabels.getChildren().addAll(minLabel, spacer, maxLabel);
-            
-            // Create submit button
-            Button submitRatingButton = UIStyleManager.createMenuButton("Submit Rating", _ -> {
-                double ratingValue = satisfactionSlider.getValue();
-                // Pass the phaseDetails VBox to update it after submission
-                handleSubmitSatisfactionRating(branch, lastSeenPhase, ratingValue, phaseDetails);
-            });
-            submitRatingButton.setPrefWidth(150);
-            
-            phaseDetails.getChildren().addAll(rateLabel, satisfactionSlider, sliderLabels, submitRatingButton);
-        }
-    }
-    
-    // Create details button
-    Button viewDetailsButton = UIStyleManager.createMenuButton("View Branch Details", _ -> {
-        // Select this branch in the branches view
-        handleShowBranches();
-        
-        // Need to find and select this branch in the branches list view
-        // This functionality would be added in the handleShowBranches method
-    });
-    viewDetailsButton.setPrefWidth(180);
-    
-    // Add all components to the card
-    card.getChildren().addAll(nameLabel, ideaLabel, phaseChangeLabel, phaseDetails, viewDetailsButton);
-    
-    return card;
-}
-
-// Modified handleSubmitSatisfactionRating to accept phaseDetails VBox
-private static void handleSubmitSatisfactionRating(Branch branch, Branch.Phase phase, double rating, VBox phaseDetailsContainer) {
-    try {
-        User currentUser = SessionManager.getCurrentUser();
-        if (currentUser == null) {
-            DialogFactory.showError("Error: Not logged in.");
-            return;
-        }
-
-        // Double-check if already rated before saving
-        Rating existingRatingCheck = DatabaseManager.getRatingByUserForBranchPhase(
-                currentUser.getUsername(),
-                branch.getId(),
-                phase.name()
-        );
-        if (existingRatingCheck != null) {
-            DialogFactory.showError("Already Rated: You have already submitted a rating for this phase.");
-            // Update UI to reflect it's already rated, similar to createNotificationCard
-             phaseDetailsContainer.getChildren().clear();
-             Label alreadyRatedLabel = new Label(
-                     "Already rated: " + existingRatingCheck.getRatingValue() + "%");
-             alreadyRatedLabel.setStyle("-fx-text-fill: #76ff76;");
-             phaseDetailsContainer.getChildren().add(alreadyRatedLabel);
-            return;
-        }
-
-        // Create a Rating object
-        String raterUsername = currentUser.getUsername();
-        int branchId = branch.getId();
-        String phaseType = phase.name();
-        int ratingValue = (int) Math.round(rating);
-        String comment = ""; // Add a comment field later if needed
-
-        Rating newRating = new Rating(raterUsername, branchId, phaseType, ratingValue, comment);
-
-        // Save the Rating object using the correct method
-        DatabaseManager.saveRating(newRating);
-
-         // Update the UI to show the rating has been submitted
-        phaseDetailsContainer.getChildren().clear(); // Clear the slider/button
-        Label thankYouLabel = new Label("Thank you for your rating of " + ratingValue + "%");
-        thankYouLabel.setStyle("-fx-text-fill: #76ff76;");
-        phaseDetailsContainer.getChildren().add(thankYouLabel);
-
-        // --- Optional: Decide if you still need the code below --- 
-        // If the ratings table is the primary source, you might remove this.
-        /*
-        // Get the phase object
-        PhaseBase phaseObj = null;
-        switch (phase) {
-            case GENERATION: phaseObj = branch.getGeneration(); break;
-            case INVESTIGATION: phaseObj = branch.getInvestigation(); break;
-            case DEVELOPMENT: phaseObj = branch.getDevelopment(); break;
-            case PRODUCTION: phaseObj = branch.getProduction(); break;
-            case DISTRIBUTION: phaseObj = branch.getDistribution(); break;
-            case MAINTENANCE: phaseObj = branch.getMaintenance(); break;
-            case RECYCLING: phaseObj = branch.getRecycling(); break;
-            default: break; // No specific object for others yet
-        }
-        if (phaseObj != null) {
-            phaseObj.setSatisfactionIndex(rating);
-            DatabaseManager.savePhase(branch.getId(), phase, phaseObj);
-        }
-        */
-        // --- End of Optional Section ---
-
-        DialogFactory.showInfo("Rating Submitted",
-                "Your satisfaction rating of " + ratingValue + "% for the " +
-                phase.toString() + " phase has been recorded.");
-
-    } catch (SQLException e) {
-        DialogFactory.showError("Error saving satisfaction rating: " + e.getMessage());
-        e.printStackTrace(); // Print stack trace for debugging
-    } catch (Exception e) { // Catch other potential errors
-        DialogFactory.showError("An unexpected error occurred: " + e.getMessage());
-        e.printStackTrace();
-    }
-}
-    
-    // New method to display the dashboard content
     private static void showDashboard() {
-        // Create content area with welcome message
         VBox contentArea = new VBox(15);
         contentArea.setPadding(new Insets(20));
         contentArea.setAlignment(Pos.CENTER);
-        
+
         Label titleLabel = new Label("Trust System Dashboard");
         titleLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 22px; -fx-font-weight: bold;");
-        
+
         Label subtitleLabel = new Label("Select an option from the menu to get started");
         subtitleLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 16px;");
-        
-        // Add user stats
+
         User currentUser = SessionManager.getCurrentUser();
         VBox statsBox = new VBox(5);
         statsBox.setAlignment(Pos.CENTER);
         statsBox.setPadding(new Insets(20));
         statsBox.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 5px;");
-        
+
         Label levelLabel = new Label("Level: " + currentUser.getLevel());
         levelLabel.setStyle("-fx-text-fill: #d9d9d9;");
-        
-        Label xpLabel = new Label("XP: " + currentUser.getXp() + "/" + 
-                SystemParameters.calculateXpThreshold(currentUser.getLevel()));
+
+        Label xpLabel = new Label("XP: " + currentUser.getXp() +
+                "/" + SystemParameters.calculateXpThreshold(currentUser.getLevel()));
         xpLabel.setStyle("-fx-text-fill: #d9d9d9;");
-        
+
         Label pointsLabel = new Label("Points: " + currentUser.getPoints());
         pointsLabel.setStyle("-fx-text-fill: #d9d9d9;");
-        
+
+        // Load user berries from database to ensure accurate berry count in dashboard
+        try {
+            List<Berry> berries = DatabaseManager.getUserBerries(currentUser.getUsername());
+            userBerries.put(currentUser.getUsername(), berries);
+        } catch (SQLException e) {
+            System.err.println("Error loading berries for dashboard: " + e.getMessage());
+        }
+
         int berryCount = BerryService.getUserTotalBerries(currentUser.getUsername());
         Label berriesLabel = new Label("Berries: " + berryCount);
         berriesLabel.setStyle("-fx-text-fill: #d9d9d9;");
-        
+
         statsBox.getChildren().addAll(levelLabel, xpLabel, pointsLabel, berriesLabel);
-        
+
         contentArea.getChildren().addAll(titleLabel, subtitleLabel, statsBox);
-        
-        // Set the dashboard in the center of the main layout
+
         mainLayout.setCenter(contentArea);
-        
-        // Update the window title to reflect we're on the dashboard
         primaryStage.setTitle("Trust System - Dashboard");
     }
-    
-    // New method to update the content in the main window
+
     private static void setMainContent(Node content, String title) {
         mainLayout.setCenter(content);
         primaryStage.setTitle("Trust System - " + title);
     }
-    
-    // Example of UI handlers calling service methods
-    private static void handleCreateNeed(String needName) {
+
+    public static void initialize() {
         try {
-            NeedService.createNeed(needName);
+            DatabaseConnection.initializeDataSource();
+            loadBerriesFromDatabase();
+            loadProposalsFromDatabase();
+            loadFieldsOfExpertiseFromDatabase();
+            BerryService.checkAndRemoveExpiredBerries();
         } catch (SQLException e) {
-            DialogFactory.showError("Error creating need: " + e.getMessage());
+            DialogFactory.showError("Database initialization error: " + e.getMessage());
+            System.exit(1);
         }
     }
-    
-    private static void handleAllocatePoints(User user, Need need, int points, boolean affected, String location) {
-        try {
-            NeedService.allocatePointsToNeed(user, need, points, affected, location);
-        } catch (SQLException e) {
-            DialogFactory.showError("Error allocating points: " + e.getMessage());
-        }
+
+    private static void loadBerriesFromDatabase() throws SQLException {
+        userBerries = BerryService.loadAllUserBerries();
     }
-    
-    private static void handleSubmitIdea(String name, String description, String author, Set<Need> associatedNeeds) {
+
+    private static void loadProposalsFromDatabase() throws SQLException {
+        levelProposals = DatabaseManager.loadAllLevelProposals();
+        berryEarningProposals = DatabaseManager.loadAllBerryEarningProposals();
+        berryValidityProposals = DatabaseManager.loadAllBerryValidityProposals();
+        berryConversionProposals = DatabaseManager.loadAllBerryConversionProposals();
+        needThresholdProposals = DatabaseManager.loadAllNeedThresholdProposals();
+        updateSystemParametersFromActiveProposals();
+    }
+
+    private static void loadFieldsOfExpertiseFromDatabase() throws SQLException {
+        fieldsOfExpertise = DatabaseManager.loadAllFieldsOfExpertise();
+    }
+
+    public static boolean registerUser(String username, String password, String displayName) {
         try {
-            int ideaId = IdeaService.submitIdea(name, description, author);
-            if (ideaId != -1 && associatedNeeds != null && !associatedNeeds.isEmpty()) {
-                IdeaService.associateIdeaWithNeeds(ideaId, associatedNeeds);
+            User existingUser = DatabaseManager.getUser(username);
+            if (existingUser != null) {
+                DialogFactory.showInfo("Registration Failed", "Username already exists.");
+                return false;
+            }
+
+            User newUser = new User(username, displayName);
+            newUser.setPassword(password);
+
+            int userId = DatabaseManager.saveUser(newUser);
+
+            if (userId != -1) {
+                newUser.setId(userId);
+                return true;
             }
         } catch (SQLException e) {
-            DialogFactory.showError("Error submitting idea: " + e.getMessage());
+            DialogFactory.showError("Error registering user: " + e.getMessage());
         }
+
+        return false;
     }
-    
-    private static void handleVoteForIdea(int ideaId, User voter) {
+
+    public static boolean isIdeaAuthor(int ideaId, String username) {
         try {
-            IdeaService.voteForIdea(ideaId, voter);
+            Idea idea = DatabaseManager.getIdea(ideaId);
+            return idea != null && idea.getAuthor().equals(username);
         } catch (SQLException e) {
-            DialogFactory.showError("Error voting for idea: " + e.getMessage());
+            System.err.println("Error checking idea author: " + e.getMessage());
+            return false;
         }
     }
-    
-    private static void handleCreateBranch(String name, String description, int parentId, Integer ideaId) {
-        try {
-            BranchService.createBranch(name, description, parentId, ideaId);
-        } catch (SQLException e) {
-            DialogFactory.showError("Error creating branch: " + e.getMessage());
+
+    public static void processMonthlyBerryDistribution() throws SQLException {
+        loadProposalsFromDatabase();
+
+        List<User> allUsers = DatabaseManager.getAllUsersList();
+        for (User user : allUsers) {
+            int level = user.getLevel();
+            BerryService.distributeBerriesForLevel(user, level);
         }
+
+        DialogFactory.showInfo("Monthly Distribution Complete",
+            "Monthly Berry distribution completed for all users.");
     }
-    
-    private static void handleCreateLevelProposal(String author, double xpIncrease, double xpThreshold) {
-        try {
-            ProposalService.createLevelProposal( author, xpIncrease, xpThreshold);
-        } catch (SQLException e) {
-            DialogFactory.showError("Error creating level proposal: " + e.getMessage());
-        }
-    }
-    
-    private static void handleVoteForProposal(String proposalType, int proposalId, User voter) {
-        try {
-            ProposalService.voteForProposal(proposalType, proposalId, voter);
-        } catch (SQLException e) {
-            DialogFactory.showError("Error voting for proposal: " + e.getMessage());
-        }
-    }
-    
-    private static void handleConvertToBerries(User user, int points) {
-        try {
-            BerryService.convertToBerries(user, points);
-        } catch (SQLException e) {
-            DialogFactory.showError("Error converting to berries: " + e.getMessage());
-        }
-    }
-    
-    private static void handleAssociateBranchWithIdea(int branchId, int ideaId) {
-        try {
-            BranchService.associateBranchWithIdea(branchId, ideaId);
-        } catch (SQLException e) {
-            DialogFactory.showError("Error associating branch with idea: " + e.getMessage());
-        }
-    }
-    
-    // Add placeholder methods for menu items
+
     private static void handleShowNeeds() {
         try {
-            // Create a BorderPane for needs management
-            BorderPane needsLayout = new BorderPane();
-            needsLayout.setStyle("-fx-background-color: #2e2e2e;");
+            // Load all needs from DB
+            Map<Integer, Need> needs = DatabaseManager.loadAllNeeds();
+            User currentUser = SessionManager.getCurrentUser();
             
-            // Create header
-            Label headerLabel = new Label("Needs Management");
-            headerLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 24px; -fx-padding: 20px;");
-            needsLayout.setTop(headerLabel);
+            VBox content = new VBox(20);
+            content.setPadding(new Insets(30));
+            content.setStyle("-fx-background-color: #2e2e2e;");
+
+            // Header section with title and stats
+            VBox header = new VBox(10);
+            Label title = new Label("🎯 Needs Hub");
+            title.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 28px; -fx-font-weight: bold;");
             
-            // Create ListView for needs
-            ListView<Need> needsListView = new ListView<>();
-            needsListView.setStyle("-fx-background-color: #3e3e3e; -fx-control-inner-background: #3e3e3e;");
-            
-            // Populate the list with needs
-            for (Need need : needs.values()) {
-                needsListView.getItems().add(need);
+            Label subtitle = new Label("Identify, support, and track community needs");
+            subtitle.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic;");
+
+            // Calculate and show remaining points
+            int totalAssigned = 0;
+            int needsWithPoints = 0;
+            for (Need n : needs.values()) {
+                int userPoints = n.getSupporters().getOrDefault(currentUser.getUsername(), 0);
+                totalAssigned += userPoints;
+                if (userPoints > 0) {
+                    needsWithPoints++;
+                }
             }
+            int pointsLeft = 100 - totalAssigned;
             
-            // Custom cell factory for displaying needs
-            needsListView.setCellFactory(_ -> new ListCell<Need>() {
+            // Stats bar
+            HBox statsBar = new HBox(30);
+            statsBar.setAlignment(Pos.CENTER_LEFT);
+            statsBar.setPadding(new Insets(15));
+            statsBar.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px;");
+            
+            Label totalNeedsLabel = new Label("📊 Total Needs: " + needs.size());
+            totalNeedsLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            Label supportedLabel = new Label("💰 Supported: " + needsWithPoints);
+            supportedLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            Label pointsLeftLabel = new Label("⚡ Points Left: " + pointsLeft + "/100");
+            String pointsColor = pointsLeft > 50 ? "#76ff76" : pointsLeft > 20 ? "#ffaa00" : "#ff6666";
+            pointsLeftLabel.setStyle("-fx-text-fill: " + pointsColor + "; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            statsBar.getChildren().addAll(totalNeedsLabel, supportedLabel, pointsLeftLabel);
+            header.getChildren().addAll(title, subtitle, statsBar);
+            content.getChildren().add(header);
+
+            // Enhanced Needs List with custom cells
+            ListView<Need> needsList = new ListView<>();
+            needsList.setItems(FXCollections.observableArrayList(needs.values()));
+            needsList.setCellFactory(_ -> new ListCell<>() {
                 @Override
                 protected void updateItem(Need need, boolean empty) {
                     super.updateItem(need, empty);
                     if (empty || need == null) {
+                        setGraphic(null);
                         setText(null);
+                        setStyle("-fx-background-color: transparent;");
                     } else {
-                        setText(need.getName());
-                        setStyle("-fx-text-fill: #d9d9d9;");
+                        VBox cardContent = new VBox(10);
+                        cardContent.setPadding(new Insets(15));
+                        cardContent.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 8px; -fx-border-color: #555; -fx-border-radius: 8px;");
+                        
+                        // Header row with name and user's points
+                        HBox headerRow = new HBox(10);
+                        headerRow.setAlignment(Pos.CENTER_LEFT);
+                        
+                        Label nameLabel = new Label(need.getName());
+                        nameLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 16px; -fx-font-weight: bold;");
+                        
+                        Region spacer = new Region();
+                        HBox.setHgrow(spacer, Priority.ALWAYS);
+                        
+                        int userPoints = need.getSupporters().getOrDefault(currentUser.getUsername(), 0);
+                        if (userPoints > 0) {
+                            Label pointsLabel = new Label(userPoints + " pts");
+                            pointsLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 12px; -fx-font-weight: bold; " +
+                                               "-fx-background-color: #ffd70022; -fx-padding: 4 8; -fx-background-radius: 12px;");
+                            headerRow.getChildren().addAll(nameLabel, spacer, pointsLabel);
+                        } else {
+                            headerRow.getChildren().addAll(nameLabel, spacer);
+                        }
+                        
+                        // ID and total support info
+                        HBox infoRow = new HBox(20);
+                        infoRow.setAlignment(Pos.CENTER_LEFT);
+                        
+                        Label idLabel = new Label("🆔 ID: " + need.getId());
+                        idLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 12px;");
+                        
+                        int totalSupport = need.getSupporters().values().stream().mapToInt(Integer::intValue).sum();
+                        Label totalSupportLabel = new Label("💪 Total Support: " + totalSupport + " pts");
+                        totalSupportLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 12px;");
+                        
+                        int supporterCount = need.getSupporters().size();
+                        Label supportersLabel = new Label("👥 " + supporterCount + " supporters");
+                        supportersLabel.setStyle("-fx-text-fill: #ff9999; -fx-font-size: 12px;");
+                        
+                        // Add affected indicator if user has points and is affected
+                        if (userPoints > 0 && need.getAffectedUsers().containsKey(currentUser.getUsername())) {
+                            Label affectedIndicator = new Label("📍 Affected");
+                            affectedIndicator.setStyle("-fx-text-fill: #ff6b6b; -fx-font-size: 11px; -fx-font-weight: bold;");
+                            infoRow.getChildren().addAll(idLabel, totalSupportLabel, supportersLabel, affectedIndicator);
+                        } else {
+                            infoRow.getChildren().addAll(idLabel, totalSupportLabel, supportersLabel);
+                        }
+                        
+                        cardContent.getChildren().addAll(headerRow, infoRow);
+                        
+                        // Add hover effect
+                        cardContent.setOnMouseEntered(_ -> 
+                            cardContent.setStyle("-fx-background-color: #4a4a4a; -fx-background-radius: 8px; -fx-border-color: #777; -fx-border-radius: 8px;"));
+                        cardContent.setOnMouseExited(_ -> 
+                            cardContent.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 8px; -fx-border-color: #555; -fx-border-radius: 8px;"));
+                        
+                        setGraphic(cardContent);
+                        setText(null);
+                        setStyle("-fx-background-color: transparent; -fx-padding: 5;");
                     }
                 }
             });
             
-            // Create need details panel
-            VBox detailsPanel = new VBox(10);
-            detailsPanel.setPadding(new Insets(20));
-            detailsPanel.setStyle("-fx-background-color: #3e3e3e;");
+            needsList.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
+            needsList.setPrefHeight(400);
+            content.getChildren().add(needsList);
+
+            // Enhanced action buttons
+            HBox actions = new HBox(15);
+            actions.setAlignment(Pos.CENTER);
+            actions.setPadding(new Insets(20, 0, 0, 0));
             
-            Label detailsTitleLabel = new Label("Need Details");
-            detailsTitleLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 18px; -fx-font-weight: bold;");
+            Button createNeedBtn = createStyledButton("✨ Create Need", "#00aa00");
+            Button assignPointsBtn = createStyledButton("💰 Assign Points", "#aa7700");
+            Button markAffectedBtn = createStyledButton("📍 Mark Affected", "#aa0077");
             
-            Label nameLabel = new Label("Name: ");
-            nameLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label pointsLabel = new Label("Total Points: ");
-            pointsLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label supportersLabel = new Label("Supporters: ");
-            supportersLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label affectedLabel = new Label("Affected Users: ");
-            affectedLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            detailsPanel.getChildren().addAll(
-                detailsTitleLabel, nameLabel, pointsLabel, supportersLabel, affectedLabel
-            );
-            
-            // Set up selection change listener to update the details panel
-            needsListView.getSelectionModel().selectedItemProperty().addListener((_, __, newVal) -> {
-                if (newVal != null) {
-                    nameLabel.setText("Name: " + newVal.getName());
-                    
-                    int totalPoints = NeedService.calculateTotalPoints(newVal);
-                    pointsLabel.setText("Total Points: " + totalPoints);
-                    
-                    supportersLabel.setText("Supporters: " + newVal.getSupporters().size());
-                    affectedLabel.setText("Affected Users: " + newVal.getAffectedUsers().size());
-                } else {
-                    nameLabel.setText("Name: ");
-                    pointsLabel.setText("Total Points: 0");
-                    supportersLabel.setText("Supporters: 0");
-                    affectedLabel.setText("Affected Users: 0");
-                }
-            });
-            
-            // Create action buttons panel
-            VBox actionsPanel = new VBox(10);
-            actionsPanel.setPadding(new Insets(20));
-            actionsPanel.setStyle("-fx-background-color: #1e1e1e;");
-            actionsPanel.setPrefWidth(200);
-            actionsPanel.setAlignment(Pos.TOP_CENTER);
-            
-            Button createNeedButton = UIStyleManager.createMenuButton("Create Need", _ -> {
-                TextInputDialog dialog = new TextInputDialog();
-                // Apply styling to the dialog
+            actions.getChildren().addAll(createNeedBtn, assignPointsBtn, markAffectedBtn);
+            content.getChildren().add(actions);
+
+            // Create Need
+            createNeedBtn.setOnAction(_ -> {
+                Dialog<ButtonType> dialog = new Dialog<>();
+                dialog.setTitle("Create New Need");
+                dialog.setHeaderText("Enter the details for the new Need:");
+                
+                VBox formContent = new VBox(10);
+                formContent.setPadding(new Insets(10));
+                
+                TextField nameField = new TextField();
+                nameField.setPromptText("Need name (e.g., 'Clean Water Access', 'Public Transportation')");
+                
+                TextArea descField = new TextArea();
+                descField.setPromptText("Describe the need in detail...");
+                descField.setPrefRowCount(3);
+                
+                formContent.getChildren().addAll(
+                    new Label("Need Name:"),
+                    nameField,
+                    new Label("Description (Optional):"),
+                    descField
+                );
+                
+                dialog.getDialogPane().setContent(formContent);
+                dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
                 UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
-                dialog.setTitle("Create Need");
-                dialog.setHeaderText("Enter the name for the new need:");
-                dialog.setContentText("Name:");
                 
-                Optional<String> result = dialog.showAndWait();
-                if (result.isPresent() && !result.get().trim().isEmpty()) {
-                    handleCreateNeed(result.get().trim());
+                Optional<ButtonType> result = dialog.showAndWait();
+                if (result.isPresent() && result.get() == ButtonType.OK) {
+                    String name = nameField.getText().trim();
                     
-                    // Refresh the needs list
-                    needsListView.getItems().clear();
-                    for (Need need : needs.values()) {
-                        needsListView.getItems().add(need);
+                    if (name.isEmpty()) {
+                        DialogFactory.showError("Need name cannot be empty.");
+                        return;
+                    }
+                    
+                    try {
+                        int needId = DatabaseManager.createNeed(name);
+                        if (needId > 0) {
+                            DialogFactory.showInfo("Need Created", "Need '" + name + "' created successfully with ID: " + needId);
+                            handleShowNeeds(); // Refresh the list
+                        } else {
+                            DialogFactory.showError("Failed to create need.");
+                        }
+                    } catch (SQLException ex) {
+                        DialogFactory.showError("Error creating need: " + ex.getMessage());
                     }
                 }
             });
-            
-            Button supportNeedButton = UIStyleManager.createMenuButton("Support Need", _ -> {
-                Need selectedNeed = needsListView.getSelectionModel().getSelectedItem();
+
+            // Assign Points
+            assignPointsBtn.setOnAction(_ -> {
+                Need selectedNeed = needsList.getSelectionModel().getSelectedItem();
                 if (selectedNeed == null) {
-                    DialogFactory.showInfo("Selection Required", "Please select a need first.");
+                    DialogFactory.showError("Please select a Need to assign points to.");
                     return;
                 }
-                
-                User currentUser = SessionManager.getCurrentUser();
-                
-                // Create dialog for supporting a need
-                Dialog<Map<String, Object>> dialog = new Dialog<>();
-                UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog); // Apply styling
-                dialog.setTitle("Support Need");
-                dialog.setHeaderText("Support Need: " + selectedNeed.getName());
-                
-                // Set the button types
-                ButtonType supportButtonType = new ButtonType("Support", ButtonBar.ButtonData.OK_DONE);
-                dialog.getDialogPane().getButtonTypes().addAll(supportButtonType, ButtonType.CANCEL);
-                
-                // Create the form grid
-                GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(10);
-                grid.setPadding(new Insets(20, 150, 10, 10));
-                
-                // Create points field
+
+                Dialog<ButtonType> dialog = new Dialog<>();
+                dialog.setTitle("Assign Points to Need");
+                dialog.setHeaderText("Assign points to: " + selectedNeed.getName());
+                dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+
+                VBox formContent = new VBox(15);
+                formContent.setPadding(new Insets(15));
+
                 TextField pointsField = new TextField();
-                pointsField.setPromptText("Points");
-                grid.add(new Label("Points:"), 0, 0);
-                grid.add(pointsField, 1, 0);
+                pointsField.setPromptText("Enter points to assign");
+                pointsField.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
                 
-                // Add grid to dialog
-                dialog.getDialogPane().setContent(grid);
+                Label pointsInfoLabel = new Label("You can assign points to support this need.");
+                pointsInfoLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px.");
+
+                formContent.getChildren().addAll(
+                    new Label("Points:"), // Consider styling this label for consistency
+                    pointsField,
+                    pointsInfoLabel
+                );
                 
-                // Request focus on points field
-                Platform.runLater(() -> pointsField.requestFocus());
+                dialog.getDialogPane().setContent(formContent);
+                dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+                UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
                 
-                // Set result converter
-                dialog.setResultConverter(dialogButton -> {
-                    if (dialogButton == supportButtonType) {
-                        try {
-                            Map<String, Object> result = new HashMap<>();
-                            result.put("points", Integer.parseInt(pointsField.getText().trim()));
-                            return result;
-                        } catch (NumberFormatException ex) {
-                            DialogFactory.showInfo("Invalid Input", "Please enter a valid number for points.");
-                            return null;
+                Optional<ButtonType> result = dialog.showAndWait();
+                if (result.isPresent() && result.get() == ButtonType.OK) {
+                    try {
+                        int points = Integer.parseInt(pointsField.getText().trim());
+                        if (points < 0) {
+                            DialogFactory.showError("Points must be non-negative.");
+                            return;
                         }
+                        
+                        // Get current user's points for this need
+                        int currentUserPoints = selectedNeed.getSupporters().getOrDefault(currentUser.getUsername(), 0);
+                        // Get total points assigned to this need
+                        int totalAssignedNow = selectedNeed.getSupporters().values().stream()
+                                .mapToInt(Integer::intValue).sum();
+                        // Check if total would exceed 100
+                        int newTotal = totalAssignedNow - currentUserPoints + points;
+                        if (newTotal > 100) {
+                            DialogFactory.showError("You cannot assign more than 100 points in total. You have " + (100 - (totalAssignedNow - currentUserPoints)) + " points available.");
+                            return;
+                        }
+
+                        // Update points in database
+                        DatabaseManager.addNeedSupporter(selectedNeed.getId(), currentUser.getUsername(), points);
+                        
+                        String message = points == 0 ? 
+                            "Removed your support from '" + selectedNeed.getName() + "'." :
+                            "Assigned " + points + " points to '" + selectedNeed.getName() + "'.";
+                        DialogFactory.showInfo("Points Updated", message);
+                        handleShowNeeds(); // Refresh the list
+                    } catch (NumberFormatException ex) {
+                        DialogFactory.showError("Please enter a valid number.");
+                    } catch (SQLException ex) {
+                        DialogFactory.showError("Error assigning points: " + ex.getMessage());
                     }
-                    return null;
-                });
-                
-                // Process the result
-                Optional<Map<String, Object>> result = dialog.showAndWait();
-                result.ifPresent(data -> {
-                    int points = (int) data.get("points");
-                    
-                    // Call the service method to allocate points (as supporter)
-                    handleAllocatePoints(currentUser, selectedNeed, points, false, "");
-                    
-                    // Refresh the needs list and update selection
-                    Need updatedNeed = needs.get(selectedNeed.getId());
-                    
-                    // Trigger update of the details panel
-                    needsListView.getSelectionModel().clearSelection();
-                    needsListView.getSelectionModel().select(updatedNeed);
-                });
+                }
             });
-            
-            Button markAsAffectedButton = UIStyleManager.createMenuButton("Mark as Affected", _ -> {
-                Need selectedNeed = needsListView.getSelectionModel().getSelectedItem();
-                if (selectedNeed == null) {
-                    DialogFactory.showInfo("Selection Required", "Please select a need first.");
+
+            // Mark as Affected
+            markAffectedBtn.setOnAction(_ -> {
+                Need selected = needsList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Please select a Need to mark yourself as affected.");
                     return;
                 }
                 
-                User currentUser = SessionManager.getCurrentUser();
+                // Only allow if user has assigned points to this Need
+                int userPointsForNeed = selected.getSupporters().getOrDefault(currentUser.getUsername(), 0);
+                if (userPointsForNeed <= 0) {
+                    DialogFactory.showError("You must assign points to this Need before you can mark yourself as affected by it.");
+                    return;
+                }
                 
-                // Create dialog for marking as affected
-                Dialog<Map<String, Object>> dialog = new Dialog<>();
-                UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog); // Apply styling
+                Dialog<ButtonType> dialog = new Dialog<>();
                 dialog.setTitle("Mark as Affected");
-                dialog.setHeaderText("Mark as Affected by: " + selectedNeed.getName());
+                dialog.setHeaderText("Mark yourself as affected by '" + selected.getName() + "'");
                 
-                // Set the button types
-                ButtonType confirmButtonType = new ButtonType("Confirm", ButtonBar.ButtonData.OK_DONE);
-                dialog.getDialogPane().getButtonTypes().addAll(confirmButtonType, ButtonType.CANCEL);
+                VBox formContent = new VBox(15);
+                formContent.setPadding(new Insets(15));
                 
-                // Create the form grid
-                GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(10);
-                grid.setPadding(new Insets(20, 150, 10, 10));
+                Label infoLabel = new Label(String.format(
+                    "You are about to mark yourself as affected by this need.\n" +
+                    "Your current support: %d points", userPointsForNeed
+                ));
+                infoLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
                 
-                // Points field (fixed at 5 for affected users)
-                TextField pointsField = new TextField("5");
-                pointsField.setPromptText("Points to contribute");
-                pointsField.setDisable(true); // Fixed value for affected users
-                
-                // Location field
                 TextField locationField = new TextField();
-                locationField.setPromptText("Your location");
+                locationField.setPromptText("Enter your location (e.g., 'Downtown', 'North District', 'Main St')");
                 
-                // Create labels with white text styling
-                Label availablePointsLabel = new Label("Available points: " + currentUser.getPoints());
-                availablePointsLabel.setStyle("-fx-text-fill: white;");
+                TextArea impactField = new TextArea();
+                impactField.setPromptText("Describe how this need affects you (optional)...");
+                impactField.setPrefRowCount(3);
                 
-                Label pointsLabel2 = new Label("Points (fixed):");
-                pointsLabel2.setStyle("-fx-text-fill: white;");
+                Label privacyLabel = new Label("🔒 Your location information will be used to understand the geographic distribution of this need.");
+                privacyLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 11px; -fx-font-style: italic;");
+                privacyLabel.setWrapText(true);
                 
-                Label locationLabel = new Label("Location:");
-                locationLabel.setStyle("-fx-text-fill: white;");
+                formContent.getChildren().addAll(
+                    infoLabel,
+                    new Label("Your Location:"),
+                    locationField,
+                    new Label("Impact Description (Optional):"),
+                    impactField,
+                    privacyLabel
+                );
                 
-                // Add fields to grid with styled labels
-                grid.add(availablePointsLabel, 0, 0, 2, 1);
-                grid.add(pointsLabel2, 0, 1);
-                grid.add(pointsField, 1, 1);
-                grid.add(locationLabel, 0, 2);
-                grid.add(locationField, 1, 2);
+                dialog.getDialogPane().setContent(formContent);
+                dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+                UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
                 
-                // Style the dialog
-                DialogPane dialogPane = dialog.getDialogPane();
-                dialogPane.setContent(grid);
-                dialogPane.getStyleClass().add("dialog");
-                dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-                
-                // Style the header text to be white
-                dialogPane.lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-                
-                // Set result converter
-                dialog.setResultConverter(dialogButton -> {
-                    if (dialogButton == confirmButtonType) {
-                        int points = 5; // Fixed points for affected users
-                        
-                        if (points > currentUser.getPoints()) {
-                            DialogFactory.showInfo("Insufficient Points", 
-                                "You need 5 points to mark yourself as affected. You only have " + 
-                                currentUser.getPoints() + " points available.");
-                            return null;
-                        }
-                        
-                        Map<String, Object> result = new HashMap<>();
-                        result.put("points", points);
-                        result.put("location", locationField.getText().trim());
-                        
-                        return result;
+                Optional<ButtonType> result = dialog.showAndWait();
+                if (result.isPresent() && result.get() == ButtonType.OK) {
+                    String location = locationField.getText().trim();
+                    if (location.isEmpty()) {
+                        DialogFactory.showError("Please enter your location.");
+                        return;
                     }
-                    return null;
-                });
-                
-                // Process the result
-                Optional<Map<String, Object>> result = dialog.showAndWait();
-                result.ifPresent(data -> {
-                    int points = (int) data.get("points");
-                    String location = (String) data.get("location");
                     
-                    // Call the service method to allocate points (as affected)
-                    handleAllocatePoints(currentUser, selectedNeed, points, true, location);
-                    
-                    // Refresh the needs list and update selection
-                    Need updatedNeed = needs.get(selectedNeed.getId());
-                    
-                    // Trigger update of the details panel
-                    needsListView.getSelectionModel().clearSelection();
-                    needsListView.getSelectionModel().select(updatedNeed);
-                });
+                    try {
+                        DatabaseManager.addNeedAffectedUser(selected.getId(), currentUser.getUsername(), location);
+                        DialogFactory.showInfo("Marked as Affected", 
+                            "You are now marked as affected by '" + selected.getName() + "' in location: " + location);
+                        handleShowNeeds(); // Refresh the list
+                    } catch (SQLException ex) {
+                        DialogFactory.showError("Error marking as affected: " + ex.getMessage());
+                    }
+                }
             });
-            
-            // Replace the Close button with a Back button that returns to the dashboard
-            Button backButton = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
-            
-            // Add buttons to the actions panel
-            actionsPanel.getChildren().addAll(
-                createNeedButton, supportNeedButton, markAsAffectedButton, backButton
-            );
-            
-            // Create a split pane to contain the list and details
-            BorderPane contentPane = new BorderPane();
-            contentPane.setCenter(needsListView);
-            contentPane.setBottom(detailsPanel);
-            
-            // Add all components to the needs layout
-            needsLayout.setCenter(contentPane);
-            needsLayout.setRight(actionsPanel);
-            
-            // Set the needs content in the main window
-            setMainContent(needsLayout, "Needs Management");
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-            DialogFactory.showError("Error displaying needs view: " + e.getMessage());
+
+            setMainContent(content, "Needs Management");
+        } catch (SQLException e) {
+            DialogFactory.showError("Error loading needs: " + e.getMessage());
         }
     }
-    
+
     private static void handleShowIdeas() {
         try {
-            // Create a BorderPane for ideas management
-            BorderPane ideasLayout = new BorderPane();
-            ideasLayout.setStyle("-fx-background-color: #2e2e2e;");
+            // Load all ideas from DB
+            Map<Integer, Idea> ideas = DatabaseManager.loadAllIdeas();
+            // Load all needs for association selection
+            Map<Integer, Need> availableNeeds = DatabaseManager.loadAllNeeds();
+            User currentUser = SessionManager.getCurrentUser();
             
-            // Create header
-            Label headerLabel = new Label("Ideas Management");
-            headerLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 24px; -fx-padding: 20px;");
-            ideasLayout.setTop(headerLabel);
+            VBox content = new VBox(20);
+            content.setPadding(new Insets(30));
+            content.setStyle("-fx-background-color: #2e2e2e;");
+
+            // Header section with title and stats
+            VBox header = new VBox(10);
+            Label title = new Label("💡 Ideas Explorer");
+            title.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 28px; -fx-font-weight: bold;");
             
-            // Create ListView for ideas
-            ListView<Idea> ideasListView = new ListView<>();
-            ideasListView.setStyle("-fx-background-color: #3e3e3e; -fx-control-inner-background: #3e3e3e;");
+            Label subtitle = new Label("Discover, create, and collaborate on innovative ideas");
+            subtitle.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic;");
             
-            // Populate the list with ideas
-            for (Idea idea : ideas.values()) {
-                ideasListView.getItems().add(idea);
-            }
+            // Stats bar
+            HBox statsBar = new HBox(30);
+            statsBar.setAlignment(Pos.CENTER_LEFT);
+            statsBar.setPadding(new Insets(15));
+            statsBar.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px;");
             
-            // Custom cell factory for displaying ideas
-            ideasListView.setCellFactory(_ -> new ListCell<Idea>() {
+            Label totalIdeasLabel = new Label("📊 Total Ideas: " + ideas.size());
+            totalIdeasLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            long myIdeasCount = ideas.values().stream()
+                    .filter(idea -> idea.getAuthor().equals(currentUser.getUsername()))
+                    .count();
+            Label myIdeasLabel = new Label("✏️ My Ideas: " + myIdeasCount);
+            myIdeasLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            long votedIdeasCount = ideas.values().stream()
+                    .filter(idea -> idea.getSupporters().contains(currentUser.getUsername()))
+                    .count();
+            Label votedLabel = new Label("👍 Voted: " + votedIdeasCount);
+            votedLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            statsBar.getChildren().addAll(totalIdeasLabel, myIdeasLabel, votedLabel);
+            header.getChildren().addAll(title, subtitle, statsBar);
+            content.getChildren().add(header);
+
+            // Enhanced Ideas List with custom cells
+            ListView<Idea> ideasList = new ListView<>();
+            ideasList.setItems(FXCollections.observableArrayList(ideas.values()));
+            ideasList.setCellFactory(_ -> new ListCell<>() {
                 @Override
                 protected void updateItem(Idea idea, boolean empty) {
                     super.updateItem(idea, empty);
                     if (empty || idea == null) {
+                        setGraphic(null);
                         setText(null);
+                        setStyle("-fx-background-color: transparent;");
                     } else {
-                        setText(idea.getName() + " (by " + idea.getAuthor() + ")");
-                        setStyle("-fx-text-fill: #d9d9d9;");
-                    }
-                }
-            });
-            
-            // Create idea details panel
-            VBox detailsPanel = new VBox(10);
-            detailsPanel.setPadding(new Insets(20));
-            detailsPanel.setStyle("-fx-background-color: #3e3e3e;");
-            
-            Label detailsTitleLabel = new Label("Idea Details");
-            detailsTitleLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 18px; -fx-font-weight: bold;");
-            
-            Label nameLabel = new Label("Name: ");
-            nameLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label authorLabel = new Label("Author: ");
-            authorLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label descriptionLabel = new Label("Description: ");
-            descriptionLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label votesLabel = new Label("Votes: ");
-            votesLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label linkedNeedsLabel = new Label("Linked Needs: ");
-            linkedNeedsLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            detailsPanel.getChildren().addAll(
-                detailsTitleLabel, nameLabel, authorLabel, descriptionLabel, votesLabel, linkedNeedsLabel
-            );
-            
-            // Set up selection change listener to update the details panel
-            ideasListView.getSelectionModel().selectedItemProperty().addListener((_, __, newVal) -> {
-                if (newVal != null) {
-                    nameLabel.setText("Name: " + newVal.getName());
-                    authorLabel.setText("Author: " + newVal.getAuthor());
-                    descriptionLabel.setText("Description: " + newVal.getDescription());
-                    // Show votes as the number of supporters, not voteCount
-                    votesLabel.setText("Votes: " + newVal.getSupporters().size());
-                    // Get linked needs information
-                    StringBuilder linkedNeeds = new StringBuilder();
-                    for (Integer needId : newVal.getAssociatedNeedIds()) {
-                        if (needs.containsKey(needId)) {
-                            if (linkedNeeds.length() > 0) {
-                                linkedNeeds.append(", ");
-                            }
-                            linkedNeeds.append(needs.get(needId).getName());
+                        VBox cardContent = new VBox(10);
+                        cardContent.setPadding(new Insets(15));
+                        cardContent.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 8px; -fx-border-color: #555; -fx-border-radius: 8px;");
+                        
+                        // Header row with name and status
+                        HBox headerRow = new HBox(10);
+                        headerRow.setAlignment(Pos.CENTER_LEFT);
+                        
+                        Label nameLabel = new Label(idea.getName());
+                        nameLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 16px; -fx-font-weight: bold;");
+                        
+                        Region spacer = new Region();
+                        HBox.setHgrow(spacer, Priority.ALWAYS);
+                        
+                        Label statusLabel = new Label(idea.getStatus() != null ? idea.getStatus() : "Draft");
+                        String statusColor = getStatusColor(idea.getStatus());
+                        statusLabel.setStyle("-fx-text-fill: " + statusColor + "; -fx-font-size: 12px; -fx-font-weight: bold; " +
+                                           "-fx-background-color: " + statusColor + "22; -fx-padding: 4 8; -fx-background-radius: 12px;");
+                        
+                        headerRow.getChildren().addAll(nameLabel, spacer, statusLabel);
+                        
+                        // Description (truncated)
+                        String description = idea.getDescription();
+                        if (description.length() > 100) {
+                            description = description.substring(0, 100) + "...";
                         }
-                    }
-                    if (linkedNeeds.length() == 0) {
-                        linkedNeeds.append("None");
-                    }
-                    linkedNeedsLabel.setText("Linked Needs: " + linkedNeeds.toString());
-                } else {
-                    nameLabel.setText("Name: ");
-                    authorLabel.setText("Author: ");
-                    descriptionLabel.setText("Description: ");
-                    votesLabel.setText("Votes: 0");
-                    linkedNeedsLabel.setText("Linked Needs: ");
-                }
-            });
-            
-            // Create action buttons panel
-            VBox actionsPanel = new VBox(10);
-            actionsPanel.setPadding(new Insets(20));
-            actionsPanel.setStyle("-fx-background-color: #1e1e1e;");
-            actionsPanel.setPrefWidth(200);
-            actionsPanel.setAlignment(Pos.TOP_CENTER);
-            
-            // Add "Submit Idea" button
-            Button submitIdeaButton = UIStyleManager.createMenuButton("Submit Idea", _ -> {
-                // Create dialog for submitting a new idea
-                Dialog<Map<String, Object>> dialog = new Dialog<>();
-                UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog); // Apply styling
-                dialog.setTitle("Submit New Idea");
-                dialog.setHeaderText("Enter details for your new idea");
-                
-                // Create grid pane for form layout
-                GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(10);
-                grid.setPadding(new Insets(20, 150, 10, 10));
-                
-                TextField nameField = new TextField();
-                nameField.setPromptText("Idea Name");
-                
-                TextArea descriptionArea = new TextArea();
-                descriptionArea.setPromptText("Idea Description");
-                descriptionArea.setPrefRowCount(5);
-                
-                // Create a ListView to select associated needs
-                ListView<Need> needsSelectionView = new ListView<>();
-                needsSelectionView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
-                needsSelectionView.setPrefHeight(150);
-                
-                // Populate the needs selection list
-                for (Need need : needs.values()) {
-                    needsSelectionView.getItems().add(need);
-                }
-                
-                // Custom cell factory for needs
-                needsSelectionView.setCellFactory(_ -> new ListCell<Need>() {
-                    @Override
-                    protected void updateItem(Need need, boolean empty) {
-                        super.updateItem(need, empty);
-                        if (empty || need == null) {
-                            setText(null);
+                        Label descLabel = new Label(description);
+                        descLabel.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 13px;");
+                        descLabel.setWrapText(true);
+                        
+                        // Info row with author, votes, and needs
+                        HBox infoRow = new HBox(20);
+                        infoRow.setAlignment(Pos.CENTER_LEFT);
+                        
+                        Label authorLabel = new Label("👤 " + idea.getAuthor());
+                        authorLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 12px;");
+                        
+                        Label votesLabel = new Label("👍 " + idea.getVoteCount());
+                        votesLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 12px;");
+                        
+                        Set<Integer> associatedNeeds = idea.getAssociatedNeedIds();
+                        String needsText = (associatedNeeds != null && !associatedNeeds.isEmpty()) 
+                            ? "🎯 " + associatedNeeds.size() + " needs"
+                            : "🎯 No needs";
+                        Label needsLabel = new Label(needsText);
+                        needsLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 12px;");
+                        
+                        // Add voting indicator if user has voted
+                        if (idea.getSupporters().contains(currentUser.getUsername())) {
+                            Label votedIndicator = new Label("✅ Voted");
+                            votedIndicator.setStyle("-fx-text-fill: #00ff00; -fx-font-size: 11px; -fx-font-weight: bold;");
+                            infoRow.getChildren().addAll(authorLabel, votesLabel, needsLabel, votedIndicator);
                         } else {
-                            setText(need.getName());
-                        }
-                    }
-                });
-                
-                // Add fields to the grid
-                grid.add(new Label("Name:"), 0, 0);
-                grid.add(nameField, 1, 0);
-                grid.add(new Label("Description:"), 0, 1);
-                grid.add(descriptionArea, 1, 1);
-                grid.add(new Label("Associated Needs:"), 0, 2);
-                // Define button types
-                ButtonType submitButtonType = new ButtonType("Submit", ButtonBar.ButtonData.OK_DONE);
-                dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
-                
-                dialog.getDialogPane().setContent(grid);
-                
-                // Request focus on name field
-                Platform.runLater(() -> nameField.requestFocus());
-                
-                // Set result converter to gather form data
-                dialog.setResultConverter(dialogButton -> {
-                    if (dialogButton == submitButtonType) {
-                        // Validate required fields
-                        if (nameField.getText().trim().isEmpty() || descriptionArea.getText().trim().isEmpty()) {
-                            DialogFactory.showError("Name and Description are required.");
-                            return null;
+                            infoRow.getChildren().addAll(authorLabel, votesLabel, needsLabel);
                         }
                         
-                        Map<String, Object> result = new HashMap<>();
-                        result.put("name", nameField.getText().trim());
-                        result.put("description", descriptionArea.getText().trim());
-                        result.put("selectedNeeds", new HashSet<>(needsSelectionView.getSelectionModel().getSelectedItems()));
-                        return result;
+                        cardContent.getChildren().addAll(headerRow, descLabel, infoRow);
+                        
+                        // Add hover effect
+                        cardContent.setOnMouseEntered(_ -> 
+                            cardContent.setStyle("-fx-background-color: #4a4a4a; -fx-background-radius: 8px; -fx-border-color: #777; -fx-border-radius: 8px;"));
+                        cardContent.setOnMouseExited(_ -> 
+                            cardContent.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 8px; -fx-border-color: #555; -fx-border-radius: 8px;"));
+                        
+                        setGraphic(cardContent);
+                        setText(null);
+                        setStyle("-fx-background-color: transparent; -fx-padding: 5;");
                     }
-                    return null;
-                });
+                }
                 
-                // Process the result
-                Optional<Map<String, Object>> result = dialog.showAndWait();
-                result.ifPresent(data -> {
-                    String name = (String) data.get("name");
-                    String description = (String) data.get("description");
-                    // Corrected unchecked cast
-                    @SuppressWarnings("unchecked") // Suppress warning as we know the type from dialog creation
-                    Set<Need> selectedNeeds = (Set<Need>) data.get("selectedNeeds"); 
-                    String author = SessionManager.getCurrentUser().getUsername();
-                    
-                    // Submit the idea
-                    handleSubmitIdea(name, description, author, selectedNeeds);
-                    
-                    // Refresh the ideas list
-                    ideasListView.getItems().clear();
-                    for (Idea idea : ideas.values()) {
-                        ideasListView.getItems().add(idea);
-                    }
-                });
+                private String getStatusColor(String status) {
+                    if (status == null) return "#999999";
+                    return switch (status.toLowerCase()) {
+                        case "active", "approved", "open" -> "#76ff76";
+                        case "pending", "draft" -> "#ffd700";
+                        case "rejected", "closed", "denied" -> "#ff6b6b";
+                        case "completed", "implemented" -> "#32cd32";
+                        case "expired" -> "#b2b2b2";
+                        default -> "#87ceeb";
+                    };
+                }
             });
             
-            // Add "Vote for Idea" button
-            Button voteButton = UIStyleManager.createMenuButton("Vote for Idea", _ -> {
-                Idea selectedIdea = ideasListView.getSelectionModel().getSelectedItem();
-                if (selectedIdea == null) {
-                    DialogFactory.showInfo("Selection Required", "Please select an idea to vote for.");
+            ideasList.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
+            ideasList.setPrefHeight(400);
+            content.getChildren().add(ideasList);
+
+            // Enhanced action buttons
+            HBox actions = new HBox(15);
+            actions.setAlignment(Pos.CENTER);
+            actions.setPadding(new Insets(20, 0, 0, 0));
+            
+            Button createIdeaBtn = createStyledButton("✨ Create Idea", "#00aa00");
+            Button associateNeedsBtn = createStyledButton("🔗 Associate Needs", "#0077aa");
+            Button voteBtn = createStyledButton("👍 Vote", "#aa7700");
+            Button viewDetailsBtn = createStyledButton("📋 Details", "#7700aa");
+            
+            actions.getChildren().addAll(createIdeaBtn, associateNeedsBtn, voteBtn, viewDetailsBtn);
+            content.getChildren().add(actions);
+
+            // Create Idea
+            createIdeaBtn.setOnAction(_ -> {
+                showElegantCreateIdeaDialog(currentUser);
+            });
+
+            // Associate with Needs
+            associateNeedsBtn.setOnAction(_ -> {
+                Idea selected = ideasList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Select an Idea to associate with Needs.");
+                    return;
+                }
+                showElegantAssociateNeedsDialog(selected, availableNeeds);
+            });
+
+            // Vote for Idea
+            voteBtn.setOnAction(_ -> {
+                Idea selected = ideasList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Select an Idea to vote for.");
                     return;
                 }
                 
-                // Check if the user is eligible to vote (supporter or affected by any linked need)
-                User currentUser = SessionManager.getCurrentUser();
-                boolean isEligible = false;
-                
-                for (Integer needId : selectedIdea.getAssociatedNeedIds()) {
-                    if (needs.containsKey(needId)) {
-                        Need need = needs.get(needId);
-                        if (need.getSupporters().containsKey(currentUser.getUsername()) ||
-                            need.getAffectedUsers().containsKey(currentUser.getUsername())) {
-                            isEligible = true;
-                            break;
-                        }
-                    }
+                try {
+                    User user = SessionManager.getCurrentUser();
+                    IdeaService.voteForIdea(selected.getId(), user);
+                    handleShowIdeas(); // Refresh the list
+                } catch (SQLException ex) {
+                    DialogFactory.showError("Error voting for idea: " + ex.getMessage());
                 }
-                
-                if (!isEligible) {
-                    DialogFactory.showInfo("Not Eligible", 
-                        "You must be a supporter or affected by at least one of the linked needs to vote for this idea.");
+            });
+
+            // View Details
+            viewDetailsBtn.setOnAction(_ -> {
+                Idea selected = ideasList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Select an Idea to view details.");
                     return;
                 }
-                
-                // Handle vote
-                handleVoteForIdea(selectedIdea.getId(), currentUser);
-                
-                // Refresh the ideas list and update selection
-                Idea updatedIdea = ideas.get(selectedIdea.getId());
-                ideasListView.getItems().clear();
-                for (Idea idea : ideas.values()) {
-                    ideasListView.getItems().add(idea);
-                }
-                
-                // Reselect the idea to update the details
-                ideasListView.getSelectionModel().select(updatedIdea);
+                showElegantIdeaDetails(selected);
             });
-            
-            // Add "Back to Dashboard" button
-            Button backButton = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
-            
-            // Add buttons to the actions panel
-            actionsPanel.getChildren().addAll(submitIdeaButton, voteButton, backButton);
-            
-            // Create a BorderPane to contain the list and details
-            BorderPane contentPane = new BorderPane();
-            contentPane.setCenter(ideasListView);
-            contentPane.setBottom(detailsPanel);
-            
-            // Add all components to the ideas layout
-            ideasLayout.setCenter(contentPane);
-            ideasLayout.setRight(actionsPanel);
-            
-            // Set the ideas content in the main window
-            setMainContent(ideasLayout, "Ideas Management");
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-            DialogFactory.showError("Error displaying ideas view: " + e.getMessage());
+
+            setMainContent(content, "Ideas Management");
+        } catch (SQLException e) {
+            DialogFactory.showError("Error loading ideas: " + e.getMessage());
         }
     }
-    
+
     private static void handleShowBranches() {
         try {
-            // Force reload branches directly from database before displaying them
-            try {
-                System.out.println("Directly loading branches from database before displaying UI...");
-                branches = DatabaseManager.loadAllBranches();
-                
-                // Debug: List all loaded branches and their names
-                System.out.println("Loaded " + branches.size() + " branches:");
-                for (Branch branch : branches.values()) {
-                    System.out.println("  Branch ID: " + branch.getId() + 
-                                      ", Name: \"" + branch.getName() + "\"" +
-                                      ", Description: \"" + branch.getDescription() + "\"");
-                }
-            } catch (SQLException ex) {
-                System.err.println("Error loading branches: " + ex.getMessage());
-                ex.printStackTrace();
-            }
+            // Load all branches from DB
+            Map<Integer, Branch> branches = DatabaseManager.loadAllBranches();
+            // Load all ideas for branch association
+            Map<Integer, Idea> availableIdeas = DatabaseManager.loadAllIdeas();
             
-            // Create a BorderPane for branches management
-            BorderPane branchesLayout = new BorderPane();
-            branchesLayout.setStyle("-fx-background-color: #2e2e2e;");
+            VBox content = new VBox(20);
+            content.setPadding(new Insets(30));
+            content.setStyle("-fx-background-color: #2e2e2e;");
+
+            // Header section with title and stats
+            VBox header = new VBox(10);
+            Label title = new Label("🌳 Branches Explorer");
+            title.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 28px; -fx-font-weight: bold;");
             
-            // Create header
-            Label headerLabel = new Label("Branches Management");
-            headerLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 24px; -fx-padding: 20px;");
-            branchesLayout.setTop(headerLabel);
+            Label subtitle = new Label("Manage project branches and track development phases");
+            subtitle.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic;");
             
-            // Create main content area with split panes
-            BorderPane contentPane = new BorderPane();
+            // Stats bar
+            HBox statsBar = new HBox(30);
+            statsBar.setAlignment(Pos.CENTER_LEFT);
+            statsBar.setPadding(new Insets(15));
+            statsBar.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px;");
             
-            // Create ListView for branches
-            ListView<Branch> branchesListView = new ListView<>();
-            branchesListView.setStyle("-fx-background-color: #3e3e3e; -fx-control-inner-background: #3e3e3e;");
+            Label totalBranchesLabel = new Label("📊 Total Branches: " + branches.size());
+            totalBranchesLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 14px; -fx-font-weight: bold;");
             
-            // Populate the list with branches
-            for (Branch branch : branches.values()) {
-                branchesListView.getItems().add(branch);
-            }
+            long rootBranchesCount = branches.values().stream()
+                    .filter(branch -> branch.getParentId() == 0)
+                    .count();
+            Label rootBranchesLabel = new Label("🌱 Root Branches: " + rootBranchesCount);
+            rootBranchesLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 14px; -fx-font-weight: bold;");
             
-            // Custom cell factory for displaying branches
-            branchesListView.setCellFactory(_ -> new ListCell<Branch>() {
+            long subBranchesCount = branches.size() - rootBranchesCount;
+            Label subBranchesLabel = new Label("🌿 Sub-branches: " + subBranchesCount);
+            subBranchesLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            statsBar.getChildren().addAll(totalBranchesLabel, rootBranchesLabel, subBranchesLabel);
+            header.getChildren().addAll(title, subtitle, statsBar);
+            content.getChildren().add(header);
+
+            // Enhanced Branches List with custom cells
+            ListView<Branch> branchesList = new ListView<>();
+            branchesList.setItems(FXCollections.observableArrayList(branches.values()));
+            branchesList.setCellFactory(_ -> new ListCell<>() {
                 @Override
                 protected void updateItem(Branch branch, boolean empty) {
                     super.updateItem(branch, empty);
                     if (empty || branch == null) {
+                        setGraphic(null);
                         setText(null);
+                        setStyle("-fx-background-color: transparent;");
                     } else {
-                        String branchName = branch.getName();
-                        if (branchName == null || branchName.trim().isEmpty()) {
-                            branchName = "Branch #" + branch.getId(); // Fallback name
-                        }
+                        VBox cardContent = new VBox(10);
+                        cardContent.setPadding(new Insets(15));
+                        cardContent.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 8px; -fx-border-color: #555; -fx-border-radius: 8px;");
                         
-                        String ideaInfo = "";
-                        if (branch.getIdeaId() > 0 && ideas.containsKey(branch.getIdeaId())) {
-                            ideaInfo = " - Idea: " + ideas.get(branch.getIdeaId()).getName();
+                        // Header row with name and phase
+                        HBox headerRow = new HBox(10);
+                        headerRow.setAlignment(Pos.CENTER_LEFT);
+                        
+                        // Add hierarchy indicator
+                        String hierarchyIndicator = branch.getParentId() == 0 ? "🌱" : "🌿";
+                        Label nameLabel = new Label(hierarchyIndicator + " " + branch.getName());
+                        nameLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 16px; -fx-font-weight: bold;");
+                        
+                        Region spacer = new Region();
+                        HBox.setHgrow(spacer, Priority.ALWAYS);
+                        
+                        Label phaseLabel = new Label(branch.getCurrentPhase() != null ? branch.getCurrentPhase().toString() : "GENERATION");
+                        String phaseColor = getPhaseColor(branch.getCurrentPhase());
+                        phaseLabel.setStyle("-fx-text-fill: " + phaseColor + "; -fx-font-size: 12px; -fx-font-weight: bold; " +
+                                           "-fx-background-color: " + phaseColor + "22; -fx-padding: 4 8; -fx-background-radius: 12px;");
+                        
+                        headerRow.getChildren().addAll(nameLabel, spacer, phaseLabel);
+                        
+                        // Description (truncated)
+                        String description = branch.getDescription() != null ? branch.getDescription() : "No description";
+                        if (description.length() > 100) {
+                            description = description.substring(0, 100) + "...";
                         }
-                        setText(branchName + " (Phase: " + branch.getCurrentPhase() + ")" + ideaInfo);
-                        setStyle("-fx-text-fill: #d9d9d9;");
+                        Label descLabel = new Label(description);
+                        descLabel.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 13px;");
+                        descLabel.setWrapText(true);
+                        
+                        // Info row with idea, parent, and children
+                        HBox infoRow = new HBox(20);
+                        infoRow.setAlignment(Pos.CENTER_LEFT);
+                        
+                        // Associated idea info
+                        String ideaText = "💡 No Idea";
+                        if (branch.getIdeaId() > 0 && availableIdeas.containsKey(branch.getIdeaId())) {
+                            ideaText = "💡 " + availableIdeas.get(branch.getIdeaId()).getName();
+                        }
+                        Label ideaLabel = new Label(ideaText);
+                        ideaLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 12px;");
+                        
+                        // Parent info
+                        String parentText = branch.getParentId() == 0 ? "🌱 Root" : "🌿 Sub-branch";
+                        Label parentLabel = new Label(parentText);
+                        parentLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 12px;");
+                        
+                        // Children count
+                        long childrenCount = branches.values().stream()
+                                .filter(b -> b.getParentId() == branch.getId())
+                                .count();
+                        Label childrenLabel = new Label("👥 " + childrenCount + " children");
+                        childrenLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 12px;");
+                        
+                        infoRow.getChildren().addAll(ideaLabel, parentLabel, childrenLabel);
+                        
+                        cardContent.getChildren().addAll(headerRow, descLabel, infoRow);
+                        
+                        // Add hover effect
+                        cardContent.setOnMouseEntered(_ -> 
+                            cardContent.setStyle("-fx-background-color: #4a4a4a; -fx-background-radius: 8px; -fx-border-color: #777; -fx-border-radius: 8px;"));
+                        cardContent.setOnMouseExited(_ -> 
+                            cardContent.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 8px; -fx-border-color: #555; -fx-border-radius: 8px;"));
+                        
+                        setGraphic(cardContent);
+                        setText(null);
+                        setStyle("-fx-background-color: transparent; -fx-padding: 5;");
                     }
+                }
+                
+                private String getPhaseColor(Branch.Phase phase) {
+                    if (phase == null) return "#999999";
+                    return switch (phase) {
+                        case GENERATION -> "#ff9500";
+                        case INVESTIGATION -> "#0099ff";
+                        case DEVELOPMENT -> "#ffd700";
+                        case PRODUCTION -> "#00ff00";
+                        case DISTRIBUTION -> "#87ceeb";
+                        case MAINTENANCE -> "#ff6b6b";
+                        case RECYCLING -> "#9370db";
+                        case COMPLETED -> "#32cd32";
+                        default -> "#999999";
+                    };
                 }
             });
             
-            // Branch details panel
-            VBox detailsPanel = new VBox(10);
-            detailsPanel.setPadding(new Insets(20));
-            detailsPanel.setStyle("-fx-background-color: #3e3e3e;");
-            
-            Label detailsTitleLabel = new Label("Branch Details");
-            detailsTitleLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 18px; -fx-font-weight: bold;");
-            
-            Label nameLabel = new Label("Name: ");
-            nameLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label phaseLabel = new Label("Current Phase: ");
-            phaseLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label descriptionLabel = new Label("Description: ");
-            descriptionLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label ideaLabel = new Label("Associated Idea: ");
-            ideaLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label teamSizeLabel = new Label("Team Size: ");
-            teamSizeLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label openingsLabel = new Label("Team Openings: ");
-            openingsLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            Label candidatesLabel = new Label("Candidates: ");
-            candidatesLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            
-            detailsPanel.getChildren().addAll(
-                detailsTitleLabel, nameLabel, phaseLabel, descriptionLabel, 
-                ideaLabel, teamSizeLabel, openingsLabel, candidatesLabel
-            );
-            
-            // Set up selection change listener to update the details panel
-            branchesListView.getSelectionModel().selectedItemProperty().addListener((_, __, newVal) -> {
-                if (newVal != null) {
-                    nameLabel.setText("Name: " + newVal.getName());
-                    phaseLabel.setText("Current Phase: " + newVal.getCurrentPhase());
-                    descriptionLabel.setText("Description: " + newVal.getDescription());
-                    
-                    String ideaInfo = "None";
-                    if (newVal.getIdeaId() > 0 && ideas.containsKey(newVal.getIdeaId())) {
-                        ideaInfo = ideas.get(newVal.getIdeaId()).getName();
-                    }
-                    ideaLabel.setText("Associated Idea: " + ideaInfo);
-                    
-                    ArrayList<String> team = newVal.getTeam();
-                    teamSizeLabel.setText("Team Size: " + (team != null ? team.size() : 0));
-                    openingsLabel.setText("Team Openings: " + newVal.getTeamOpenings());
-                    
-                    ArrayList<String> candidates = newVal.getCandidates();
-                    candidatesLabel.setText("Candidates: " + (candidates != null ? candidates.size() : 0));
-                } else {
-                    nameLabel.setText("Name: ");
-                    phaseLabel.setText("Current Phase: ");
-                    descriptionLabel.setText("Description: ");
-                    ideaLabel.setText("Associated Idea: ");
-                    teamSizeLabel.setText("Team Size: 0");
-                    openingsLabel.setText("Team Openings: 0");
-                    candidatesLabel.setText("Candidates: 0");
-                }
-            });
-            
-            // Create action buttons panel
-            VBox actionsPanel = new VBox(10);
-            actionsPanel.setPadding(new Insets(20));
-            actionsPanel.setStyle("-fx-background-color: #1e1e1e;");
-            actionsPanel.setPrefWidth(200);
-            actionsPanel.setAlignment(Pos.TOP_CENTER);
-            
-            // 1. Create Branch button
-            Button createBranchButton = UIStyleManager.createMenuButton("Create Branch", _ -> {
-                // Create dialog for creating a new branch
-                Dialog<Map<String, Object>> dialog = new Dialog<>();
-                dialog.setTitle("Create Branch");
-                dialog.setHeaderText("Enter details for the new branch");
-                
-                ButtonType createButtonType = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
-                dialog.getDialogPane().getButtonTypes().addAll(createButtonType, ButtonType.CANCEL);
-                
-                // Create form content
-                GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(10);
-                grid.setPadding(new Insets(20, 150, 10, 10));
-                
-                TextField nameField = new TextField();
-                nameField.setPromptText("Branch Name");
-                
-                TextArea descriptionArea = new TextArea();
-                descriptionArea.setPromptText("Branch Description");
-                descriptionArea.setPrefRowCount(3);
-                
-                // Create parent branch dropdown
-                ComboBox<Branch> parentComboBox = new ComboBox<>();
-                parentComboBox.setPromptText("Parent Branch (Optional)");
-                
-                // Add a "None" option
-                parentComboBox.getItems().add(null);
-                
-                // Add all branches
-                for (Branch branch : branches.values()) {
-                    parentComboBox.getItems().add(branch);
-                }
-                
-                // Set cell factory for the combo box
-                parentComboBox.setCellFactory(_ -> new ListCell<Branch>() {
-                    @Override
-                    protected void updateItem(Branch branch, boolean empty) {
-                        super.updateItem(branch, empty);
-                        if (branch == null) {
-                            setText("None (Root Branch)");
-                        } else if (!empty) {
-                            setText(branch.getName());
-                        } else {
-                            setText("");
-                        }
-                    }
-                });
-                
-                // Set button cell factory for selected value display
-                parentComboBox.setButtonCell(new ListCell<Branch>() {
-                    @Override
-                    protected void updateItem(Branch branch, boolean empty) {
-                        super.updateItem(branch, empty);
-                        if (branch == null) {
-                            setText("None (Root Branch)");
-                        } else if (!empty) {
-                            setText(branch.getName());
-                        } else {
-                            setText("");
-                        }
-                    }
-                });
-                
-                // Create idea selection ListView
-                ComboBox<Idea> ideaComboBox = new ComboBox<>();
-                ideaComboBox.setPromptText("Associated Idea");
-                
-                // Populate the idea combo box
-                for (Idea idea : ideas.values()) {
-                    ideaComboBox.getItems().add(idea);
-                }
-                
-                // Set cell factory for the combo box
-                ideaComboBox.setCellFactory(_ -> new ListCell<Idea>() {
-                    @Override
-                    protected void updateItem(Idea idea, boolean empty) {
-                        super.updateItem(idea, empty);
-                        if (empty || idea == null) {
-                            setText("");
-                        } else {
-                            setText(idea.getName());
-                        }
-                    }
-                });
-                
-                // Set button cell factory for selected value display
-                ideaComboBox.setButtonCell(new ListCell<Idea>() {
-                    @Override
-                    protected void updateItem(Idea idea, boolean empty) {
-                        super.updateItem(idea, empty);
-                        if (empty || idea == null) {
-                            setText("");
-                        } else {
-                            setText(idea.getName());
-                        }
-                    }
-                });
-                
-                // Add fields to the grid
-                grid.add(new Label("Name:"), 0, 0);
-                grid.add(nameField, 1, 0);
-                grid.add(new Label("Description:"), 0, 1);
-                grid.add(descriptionArea, 1, 1);
-                grid.add(new Label("Parent Branch:"), 0, 2);
-                grid.add(parentComboBox, 1, 2);
-                grid.add(new Label("Associated Idea:"), 0, 3);
-                grid.add(ideaComboBox, 1, 3);
-                
-                dialog.getDialogPane().setContent(grid);
-                
-                // Apply styling
-                dialog.getDialogPane().setStyle("-fx-background-color: #3e3e3e;");
-                dialog.getDialogPane().lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-                dialog.getDialogPane().lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-                
-                // Request focus on name field
-                Platform.runLater(() -> nameField.requestFocus());
-                
-                // Set result converter to gather form data
-                dialog.setResultConverter(dialogButton -> {
-                    if (dialogButton == createButtonType) {
-                        // Validate required fields
-                        if (nameField.getText().trim().isEmpty()) {
-                            DialogFactory.showError("Branch name is required.");
-                            return null;
-                        }
-                        
-                        Map<String, Object> result = new HashMap<>();
-                        result.put("name", nameField.getText().trim());
-                        result.put("description", descriptionArea.getText().trim());
-                        result.put("parentBranch", parentComboBox.getValue());
-                        result.put("idea", ideaComboBox.getValue());
-                        return result;
-                    }
-                    return null;
-                });
-                
-                // Process the result
-                Optional<Map<String, Object>> result = dialog.showAndWait();
-                result.ifPresent(data -> {
-                    String name = (String) data.get("name");
-                    String description = (String) data.get("description");
-                    Branch parentBranch = (Branch) data.get("parentBranch");
-                    Idea associatedIdea = (Idea) data.get("idea");
-                    
-                    int parentId = parentBranch != null ? parentBranch.getId() : 0;
-                    
-                    // Create the branch
-                    try {
-                        int branchId = BranchService.createBranch(name, description, parentId, associatedIdea != null ? associatedIdea.getId() : -1);
-                        if (branchId == -1) {
-                            DialogFactory.showError("Failed to create branch.");
-                            return;
-                        }
-                        
-                        // Refresh the branches list
-                        refreshBranchesList(branchesListView);
-                        
-                    } catch (SQLException ex) {
-                        DialogFactory.showError("Error creating branch: " + ex.getMessage());
-                    }
-                });
-            });
-            
-            // 2. Set Team Openings button
-            Button setOpeningsButton = UIStyleManager.createMenuButton("Set Team Openings", _ -> {
-                Branch selectedBranch = branchesListView.getSelectionModel().getSelectedItem();
-                if (selectedBranch == null) {
-                    DialogFactory.showInfo("Selection Required", "Please select a branch first.");
-                    return;
-                }
-                
-                // Load latest expertise requirements from the database before showing dialog
-                try {
-                    selectedBranch.loadExpertiseRequirements();
-                } catch (SQLException ex) {
-                    DialogFactory.showError("Error loading expertise requirements: " + ex.getMessage());
-                    return;
-                }
+            branchesList.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
+            branchesList.setPrefHeight(400);
+            content.getChildren().add(branchesList);
 
-                // Create a custom dialog for setting team openings with expertise requirements
-                Dialog<Map<Integer, Integer>> dialog = new Dialog<>();
-                dialog.setTitle("Set Team Openings");
-                dialog.setHeaderText("Set team openings for " + selectedBranch.getName());
-                
-                // Set the button types
-                ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
-                dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
-                
-                // Create the content grid
-                GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(10);
-                grid.setPadding(new Insets(20, 150, 10, 10));
-                
-                // Create an ObservableList to store expertise requirements (for TableView)
-                javafx.collections.ObservableList<ExpertiseRequirement> expertiseRequirements = 
-                    javafx.collections.FXCollections.observableArrayList();
-                
-                // Create a TableView to display expertise requirements
-                javafx.scene.control.TableView<ExpertiseRequirement> requirementsTable = new javafx.scene.control.TableView<>();
-                requirementsTable.setPrefHeight(200);
-                requirementsTable.setEditable(true);
-                
-                // Create and configure columns
-                javafx.scene.control.TableColumn<ExpertiseRequirement, String> expertiseCol = 
-                    new javafx.scene.control.TableColumn<>("Field of Expertise");
-                expertiseCol.setPrefWidth(220);
-                expertiseCol.setCellValueFactory(cellData -> {
-                    Integer expertiseId = cellData.getValue().getExpertiseId();
-                    if (expertiseId == -1) {
-                        return new javafx.beans.property.SimpleStringProperty("None (General)");
-                    } else if (TrustSystem.fieldsOfExpertise.containsKey(expertiseId)) {
-                        return new javafx.beans.property.SimpleStringProperty(
-                            TrustSystem.fieldsOfExpertise.get(expertiseId).getName());
-                    } else {
-                        return new javafx.beans.property.SimpleStringProperty("Unknown (" + expertiseId + ")");
-                    }
-                });
-                
-                javafx.scene.control.TableColumn<ExpertiseRequirement, Integer> countCol = 
-                    new javafx.scene.control.TableColumn<>("Openings");
-                countCol.setPrefWidth(80);
-                countCol.setCellValueFactory(cellData -> 
-                    new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getCount()).asObject());
-                
-                // Set up editable cells for the count column
-                countCol.setCellFactory(_ -> new javafx.scene.control.TableCell<ExpertiseRequirement, Integer>() {
-                    @Override
-                    protected void updateItem(Integer item, boolean empty) {
-                        super.updateItem(item, empty);
-                        
-                        if (empty || item == null) {
-                            setText(null);
-                            setGraphic(null);
-                        } else {
-                            javafx.scene.control.TextField textField = new javafx.scene.control.TextField(item.toString());
-                            textField.focusedProperty().addListener((_, __, isNowFocused) -> {
-                                if (!isNowFocused) {
-                                    try {
-                                        int value = Integer.parseInt(textField.getText());
-                                        if (value < 0) value = 0;
-                                        ExpertiseRequirement requirement = getTableView().getItems().get(getIndex());
-                                        requirement.setCount(value);
-                                        getTableView().refresh();
-                                    } catch (NumberFormatException e) {
-                                        textField.setText(item.toString());
-                                    }
-                                }
-                            });
-                            setGraphic(textField);
-                            setText(null);
-                        }
-                    }
-                });
-                
-                requirementsTable.getColumns().addAll(expertiseCol, countCol);
-                requirementsTable.setItems(expertiseRequirements);
-                
-                // Create buttons for adding/removing expertise requirements
-                Button addButton = new Button("Add Expertise");
-                addButton.setOnAction(_ -> {
-                    // Create a dialog to select expertise
-                    Dialog<Integer> expertiseDialog = new Dialog<>();
-                    expertiseDialog.setTitle("Add Expertise Requirement");
-                    expertiseDialog.setHeaderText("Select a field of expertise");
-                    
-                    ButtonType selectButtonType = new ButtonType("Select", ButtonBar.ButtonData.OK_DONE);
-                    expertiseDialog.getDialogPane().getButtonTypes().addAll(selectButtonType, ButtonType.CANCEL);
-                    
-                    // Create a ComboBox for expertise selection
-                    javafx.scene.control.ComboBox<FieldOfExpertise> expertiseComboBox = 
-                        new javafx.scene.control.ComboBox<>();
-                    
-                    // Add "None" option (general opening with no specific expertise)
-                    FieldOfExpertise noneOption = new FieldOfExpertise(-1, "None (General)", "No specific expertise required", null);
-                    expertiseComboBox.getItems().add(noneOption);
-                    
-                    // Add all fields of expertise
-                    List<FieldOfExpertise> allExpertiseFields = new ArrayList<>(TrustSystem.fieldsOfExpertise.values());
-                    Collections.sort(allExpertiseFields, Comparator.comparing(FieldOfExpertise::getName));
-                    expertiseComboBox.getItems().addAll(allExpertiseFields);
-                    
-                    // Setup combo box display
-                    expertiseComboBox.setCellFactory(_ -> new ListCell<FieldOfExpertise>() {
-                        @Override
-                        protected void updateItem(FieldOfExpertise item, boolean empty) {
-                            super.updateItem(item, empty);
-                            if (empty || item == null) {
-                                setText(null);
-                            } else {
-                                setText(item.getName());
-                            }
-                        }
-                    });
-                    expertiseComboBox.setButtonCell(new ListCell<FieldOfExpertise>() {
-                        @Override
-                        protected void updateItem(FieldOfExpertise item, boolean empty) {
-                            super.updateItem(item, empty);
-                            if (empty || item == null) {
-                                setText(null);
-                            } else {
-                                setText(item.getName());
-                            }
-                        }
-                    });
-                    
-                    // Add a TextField for number of openings
-                    TextField countField = new TextField("1");
-                    countField.setPromptText("Number of openings");
-                    
-                    // Create a grid for the dialog content
-                    GridPane expertiseGrid = new GridPane();
-                    expertiseGrid.setHgap(10);
-                    expertiseGrid.setVgap(10);
-                    expertiseGrid.setPadding(new Insets(20, 150, 10, 10));
-                    expertiseGrid.add(new Label("Field of Expertise:"), 0, 0);
-                    expertiseGrid.add(expertiseComboBox, 1, 0);
-                    expertiseGrid.add(new Label("Number of Openings:"), 0, 1);
-                    expertiseGrid.add(countField, 1, 1);
-                    
-                    expertiseDialog.getDialogPane().setContent(expertiseGrid);
-                    UIStyleManager.enhanceDialogWithKeyboardNavigation(expertiseDialog);
-                    
-                    // Set the result converter
-                    expertiseDialog.setResultConverter(dialogButton -> {
-                        if (dialogButton == selectButtonType) {
-                            FieldOfExpertise selected = expertiseComboBox.getValue();
-                            if (selected != null) {
-                                try {
-                                    int count = Integer.parseInt(countField.getText());
-                                    if (count > 0) {
-                                        // Check if this expertise is already in the list
-                                        boolean alreadyExists = false;
-                                        for (ExpertiseRequirement req : expertiseRequirements) {
-                                            if (req.getExpertiseId() == selected.getId()) {
-                                                req.setCount(req.getCount() + count);
-                                                alreadyExists = true;
-                                                break;
-                                            }
-                                        }
-                                        
-                                        if (!alreadyExists) {
-                                            // Add new requirement
-                                            expertiseRequirements.add(new ExpertiseRequirement(selected.getId(), count));
-                                        }
-                                        
-                                        requirementsTable.refresh();
-                                    }
-                                } catch (NumberFormatException a) {
-                                    // Invalid number, do nothing
-                                }
-                            }
-                        }
-                        return null;
-                    });
-                    
-                    expertiseDialog.showAndWait();
-                });
-                
-                Button removeButton = new Button("Remove Selected");
-                removeButton.setOnAction(_ -> {
-                    ExpertiseRequirement selected = requirementsTable.getSelectionModel().getSelectedItem();
-                    if (selected != null) {
-                        expertiseRequirements.remove(selected);
-                    }
-                });
-                
-                // Show the current expertise requirements if any
-                try {
-                    Map<Integer, Integer> currentRequirements = selectedBranch.getExpertiseRequirements();
-                    if (currentRequirements != null) {
-                        for (Map.Entry<Integer, Integer> entry : currentRequirements.entrySet()) {
-                            if (entry.getValue() > 0) {
-                                expertiseRequirements.add(new ExpertiseRequirement(entry.getKey(), entry.getValue()));
-                            }
-                        }
-                    }
-                } catch (Exception ex) {
-                    System.err.println("Error loading current expertise requirements: " + ex.getMessage());
-                }
-                
-                // Label for total openings
-                Label totalOpeningsLabel = new Label("Total Openings: 0");
-                
-                // Update total openings when the requirements change
-                javafx.collections.ListChangeListener<ExpertiseRequirement> listener = _ -> {
-                    int total = 0;
-                    for (ExpertiseRequirement req : expertiseRequirements) {
-                        total += req.getCount();
-                    }
-                    totalOpeningsLabel.setText("Total Openings: " + total);
-                };
-                expertiseRequirements.addListener(listener);
-                
-                // Trigger the listener to initialize the total
-                listener.onChanged(null);
-                
-                // Create a horizontal box for buttons
-                HBox buttonsBox = new HBox(10, addButton, removeButton);
-                
-                // Add components to the grid
-                grid.add(requirementsTable, 0, 0);
-                grid.add(buttonsBox, 0, 1);
-                grid.add(totalOpeningsLabel, 0, 2);
-                
-                dialog.getDialogPane().setContent(grid);
-                
-                // Apply styling
-                dialog.getDialogPane().setStyle("-fx-background-color: #3e3e3e;");
-                dialog.getDialogPane().lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-                dialog.getDialogPane().lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-                
-                // Set the result converter
-                dialog.setResultConverter(dialogButton -> {
-                    if (dialogButton == saveButtonType) {
-                        Map<Integer, Integer> result = new HashMap<>();
-                        for (ExpertiseRequirement req : expertiseRequirements) {
-                            if (req.getCount() > 0) {
-                                result.put(req.getExpertiseId(), req.getCount());
-                            }
-                        }
-                        return result;
-                    }
-                    return null;
-                });
-                
-                // Show the dialog and process the result
-                Optional<Map<Integer, Integer>> result = dialog.showAndWait();
-                result.ifPresent(requirements -> {
-                    try {
-                        // Set the expertise requirements
-                        selectedBranch.setExpertiseRequirements(requirements);
-                        selectedBranch.saveExpertiseRequirements();
-                        
-                        // Calculate the total openings
-                        int totalOpenings = 0;
-                        for (Integer count : requirements.values()) {
-                            totalOpenings += count;
-                        }
-                        
-                        // Update the branch's team openings count
-                        selectedBranch.setTeamOpenings(totalOpenings);
-                        
-                        // Refresh the branches list
-                        refreshBranchesList(branchesListView);
-                        
-                        // Update the selection to refresh details
-                        branchesListView.getSelectionModel().clearAndSelect(
-                                branchesListView.getItems().indexOf(selectedBranch));
-                        
-                    } catch (SQLException ex) {
-                        DialogFactory.showError("Error setting team openings: " + ex.getMessage());
-                    }
-                });
+            // Enhanced action buttons
+            HBox actions = new HBox(15);
+            actions.setAlignment(Pos.CENTER);
+            actions.setPadding(new Insets(20, 0, 0, 0));
+            
+            Button createRootBtn = createStyledButton("🌱 Create Root Branch", "#00aa00");
+            Button createSubBtn = createStyledButton("🌿 Create Sub-branch", "#0077aa");
+            Button associateIdeaBtn = createStyledButton("💡 Associate Idea", "#aa7700");
+            Button viewDetailsBtn = createStyledButton("📋 Details", "#7700aa");
+            Button teamOpeningsBtn = createStyledButton("👥 Team Openings", "#aa4400");
+            
+            actions.getChildren().addAll(createRootBtn, createSubBtn, associateIdeaBtn, viewDetailsBtn, teamOpeningsBtn);
+            content.getChildren().add(actions);
+
+            // Create Root Branch
+            createRootBtn.setOnAction(_ -> {
+                showElegantCreateBranchDialog(null, availableIdeas);
             });
-            
-            // 3. Apply to Join Team button
-            Button applyToJoinButton = UIStyleManager.createMenuButton("Apply to Join Team", _ -> {
-                Branch selectedBranch = branchesListView.getSelectionModel().getSelectedItem();
-                if (selectedBranch == null) {
-                    DialogFactory.showInfo("Selection Required", "Please select a branch first.");
+
+            // Create Sub-branch
+            createSubBtn.setOnAction(_ -> {
+                Branch selected = branchesList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Select a Branch to create a sub-branch for.");
                     return;
                 }
-                
-                User currentUser = SessionManager.getCurrentUser();
-                
-                // Check if branch has openings
-                if (selectedBranch.getTeamOpenings() <= 0) {
-                    DialogFactory.showInfo("No Openings", "This branch does not have any team openings.");
-                    return;
-                }
-                
-                // Check if user is already in team or candidates
-                if (selectedBranch.getTeam() != null && selectedBranch.getTeam().contains(currentUser.getUsername())) {
-                    DialogFactory.showInfo("Already in Team", "You are already a member of this branch's team.");
-                    return;
-                }
-                
-                if (selectedBranch.getCandidates() != null && selectedBranch.getCandidates().contains(currentUser.getUsername())) {
-                    DialogFactory.showInfo("Already Applied", "You have already applied to join this branch's team.");
-                    return;
-                }
-                
-                // Apply to join
-                try {
-                    selectedBranch.addCandidate(currentUser.getUsername());
-                    DialogFactory.showInfo("Application Submitted", "You have applied to join the team for " + selectedBranch.getName());
-                    
-                    // Refresh the branches list
-                    refreshBranchesList(branchesListView);
-                    
-                    // Update the selection to refresh details
-                    branchesListView.getSelectionModel().clearAndSelect(
-                            branchesListView.getItems().indexOf(selectedBranch));
-                    
-                } catch (SQLException ex) {
-                    DialogFactory.showError("Error applying to join team: " + ex.getMessage());
-                }
+                showElegantCreateBranchDialog(selected, availableIdeas);
             });
-            
-            // 4. Select Team Members button
-            Button selectTeamButton = UIStyleManager.createMenuButton("Select Team Members", _ -> {
-                Branch selectedBranch = branchesListView.getSelectionModel().getSelectedItem();
-                if (selectedBranch == null) {
-                    DialogFactory.showInfo("Selection Required", "Please select a branch first.");
+
+            // Associate with Idea
+            associateIdeaBtn.setOnAction(_ -> {
+                Branch selected = branchesList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Select a Branch to associate with an Idea.");
                     return;
                 }
-                
-                // Check if there are any candidates
-                if (selectedBranch.getCandidates() == null || selectedBranch.getCandidates().isEmpty()) {
-                    DialogFactory.showInfo("No Candidates", "There are no candidates to select from.");
-                    return;
-                }
-                
-                // Confirm selection process
-                Alert confirmDialog = new Alert(Alert.AlertType.CONFIRMATION);
-                confirmDialog.setTitle("Select Team Members");
-                confirmDialog.setHeaderText("Select Team Members for " + selectedBranch.getName());
-                confirmDialog.setContentText("This will randomly select members from the candidates pool based on " +
-                                             "the number of openings. Proceed?");
-                
-                // Apply styling
-                DialogPane dialogPane = confirmDialog.getDialogPane();
-                dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-                dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-                dialogPane.lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-                dialogPane.lookup(".content.label").setStyle("-fx-text-fill: white;");
-                
-                Optional<ButtonType> result = confirmDialog.showAndWait();
-                if (result.isPresent() && result.get() == ButtonType.OK) {
-                    try {
-                        // Run the candidate selection process
-                        selectedBranch.candidateSelector();
-                        
-                        DialogFactory.showInfo("Team Selection Complete", 
-                                "Team members have been selected from the candidates pool.");
-                        
-                        // Refresh the branches list
-                        refreshBranchesList(branchesListView);
-                        
-                        // Update the selection to refresh details
-                        branchesListView.getSelectionModel().clearAndSelect(
-                                branchesListView.getItems().indexOf(selectedBranch));
-                        
-                    } catch (SQLException ex) {
-                        DialogFactory.showError("Error selecting team members: " + ex.getMessage());
-                    }
-                }
+                showElegantAssociateIdeaDialog(selected, availableIdeas);
             });
-            
-            // 5. Advance Phase button
-            Button advancePhaseButton = UIStyleManager.createMenuButton("Advance Phase", _ -> {
-                Branch selectedBranch = branchesListView.getSelectionModel().getSelectedItem();
-                if (selectedBranch == null) {
-                    DialogFactory.showInfo("Selection Required", "Please select a branch first.");
+
+            // View Details
+            viewDetailsBtn.setOnAction(_ -> {
+                Branch selected = branchesList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Select a Branch to view details.");
                     return;
                 }
-                
-                // Confirm phase advancement
-                Alert confirmDialog = new Alert(Alert.AlertType.CONFIRMATION);
-                confirmDialog.setTitle("Advance Phase");
-                confirmDialog.setHeaderText("Advance Phase for " + selectedBranch.getName());
-                
-                String currentPhase = selectedBranch.getCurrentPhase().toString();
-                String nextPhase = getNextPhase(selectedBranch.getCurrentPhase());
-                
-                confirmDialog.setContentText("Are you sure you want to advance from " + 
-                                             currentPhase + " to " + nextPhase + "?");
-                
-                // Apply styling
-                DialogPane dialogPane = confirmDialog.getDialogPane();
-                dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-                dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-                dialogPane.lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-                dialogPane.lookup(".content.label").setStyle("-fx-text-fill: white;");
-                
-                Optional<ButtonType> result = confirmDialog.showAndWait();
-                if (result.isPresent() && result.get() == ButtonType.OK) {
-                    try {
-                        selectedBranch.advancePhase();
-                        
-                        DialogFactory.showInfo("Phase Advanced", 
-                                "Branch has been advanced to the " + selectedBranch.getCurrentPhase() + " phase.");
-                        
-                        // Refresh the branches list
-                        refreshBranchesList(branchesListView);
-                        
-                        // Update the selection to refresh details
-                        branchesListView.getSelectionModel().clearAndSelect(
-                                branchesListView.getItems().indexOf(selectedBranch));
-                        
-                    } catch (SQLException ex) {
-                        DialogFactory.showError("Error advancing phase: " + ex.getMessage());
-                    }
-                }
+                showElegantBranchDetails(selected, branches, availableIdeas);
             });
-            
-            // 6. Back to Dashboard button
-            Button backButton = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
-            
-            // Add buttons to the actions panel
-            actionsPanel.getChildren().addAll(
-                createBranchButton, 
-                setOpeningsButton, 
-                applyToJoinButton, 
-                selectTeamButton, 
-                advancePhaseButton, 
-                backButton
-            );
-            
-            // Add all components to the layout
-            contentPane.setCenter(branchesListView);
-            contentPane.setBottom(detailsPanel);
-            
-            branchesLayout.setCenter(contentPane);
-            branchesLayout.setRight(actionsPanel);
-            
-            // Set the branches content in the main window
-            setMainContent(branchesLayout, "Branches Management");
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-            DialogFactory.showError("Error displaying branches view: " + e.getMessage());
-        }
-    }
-    
-    // Helper method to refresh the branches list
-    private static void refreshBranchesList(ListView<Branch> branchesListView) {
-        Branch selectedBranch = branchesListView.getSelectionModel().getSelectedItem();
-        
-        branchesListView.getItems().clear();
-        
-        // Reload branches from database to ensure we have fresh data
-        try {
-            branches = DatabaseManager.loadAllBranches();
-            
-            // Debug: Print branch names to console
-            System.out.println("Loaded branches:");
-            for (Branch branch : branches.values()) {
-                System.out.println("  Branch ID: " + branch.getId() + ", Name: " + branch.getName());
-            }
+
+            // Manage Team Openings
+            teamOpeningsBtn.setOnAction(_ -> {
+                Branch selected = branchesList.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    DialogFactory.showError("Select a Branch to manage team openings.");
+                    return;
+                }
+                showTeamOpeningsDialog(selected);
+            });
+
+            setMainContent(content, "Branches Management");
         } catch (SQLException e) {
-            DialogFactory.showError("Error refreshing branches: " + e.getMessage());
-        }
-        
-        // Populate list with branches
-        for (Branch branch : branches.values()) {
-            branchesListView.getItems().add(branch);
-        }
-        
-        if (selectedBranch != null) {
-            // Try to find the previously selected branch by ID
-            for (Branch branch : branchesListView.getItems()) {
-                if (branch.getId() == selectedBranch.getId()) {
-                    branchesListView.getSelectionModel().select(branch);
-                    break;
-                }
-            }
+            DialogFactory.showError("Error loading branches: " + e.getMessage());
         }
     }
-    
-    // Helper method to get the next phase name
-    private static String getNextPhase(Branch.Phase currentPhase) {
-        Branch.Phase[] phases = Branch.Phase.values();
-        for (int i = 0; i < phases.length - 1; i++) {
-            if (phases[i] == currentPhase) {
-                return phases[i + 1].toString();
-            }
+
+    private static void handleShowTrace() {
+        try {
+            // Load all fields of expertise from database
+            fieldsOfExpertise = DatabaseManager.loadAllFieldsOfExpertise();
+            
+            VBox content = new VBox(20);
+            content.setPadding(new Insets(30));
+            content.setStyle("-fx-background-color: #2e2e2e;");
+
+            // Create the main management interface
+            createFieldsOfExpertiseManager(content);
+
+            setMainContent(content, "Fields of Expertise");
+        } catch (SQLException e) {
+            DialogFactory.showError("Error loading Fields of Expertise: " + e.getMessage());
         }
-        return "COMPLETED"; // Default to completed if we can't find the next phase
     }
-    
+
     private static void handleShowProposals() {
         try {
-            // Create a BorderPane for proposals management
-            BorderPane proposalsLayout = new BorderPane();
-            proposalsLayout.setStyle("-fx-background-color: #2e2e2e;");
-
-            // Create header
-            Label headerLabel = new Label("Proposals Management");
-            headerLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 24px; -fx-padding: 20px;");
-            proposalsLayout.setTop(headerLabel);
-
-            // Create TabPane to separate different proposal types
-            javafx.scene.control.TabPane tabPane = new javafx.scene.control.TabPane();
-            tabPane.setTabClosingPolicy(javafx.scene.control.TabPane.TabClosingPolicy.UNAVAILABLE);
-            tabPane.setStyle("-fx-background-color: #2e2e2e;");
-
-            // Create tabs for each proposal type using the specific maps and service methods
-            javafx.scene.control.Tab levelTab = createProposalTab("Level", "LEVEL", levelProposals,
-                () -> createLevelProposalDialog(),
-                (proposal) -> "XP Inc: " + ((LevelProposal)proposal).getXpIncreasePercentage() + "%, XP Thresh: " + ((LevelProposal)proposal).getXpThreshold());
-
-            javafx.scene.control.Tab berryEarningTab = createProposalTab("Berry Earning", "BERRY_EARNING", berryEarningProposals,
-                () -> createBerryEarningProposalDialog(),
-                (proposal) -> "Initial Lvl 1 Earning: " + ((BerryEarningProposal)proposal).getInitialLevelOneBerryEarning());
-
-            javafx.scene.control.Tab berryValidityTab = createProposalTab("Berry Validity", "BERRY_VALIDITY", berryValidityProposals,
-                () -> createBerryValidityProposalDialog(),
-                (proposal) -> "Validity Months: " + ((BerryValidityProposal)proposal).getValidityMonths());
-
-            javafx.scene.control.Tab berryConversionTab = createProposalTab("Berry Conversion", "BERRY_CONVERSION", berryConversionProposals,
-                () -> createBerryConversionProposalDialog(),
-                (proposal) -> "Conv %: " + ((BerryConversionProposal)proposal).getConversionPercentage() + ", Period: " + ((BerryConversionProposal)proposal).getConversionPeriod() + " months");
-                
-            javafx.scene.control.Tab needThresholdTab = createProposalTab("Need Threshold", "NEED_THRESHOLD", needThresholdProposals,
-                () -> createNeedThresholdProposalDialog(),
-                (proposal) -> "Global: " + ((NeedThresholdProposal)proposal).getGlobalThresholdPercent() + "%, Personal: " + 
-                              ((NeedThresholdProposal)proposal).getPersonalThresholdPercent() + "%, Time: " + 
-                              ((NeedThresholdProposal)proposal).getTimeLimit() + " months");
-
-            // Add tabs to TabPane
-            tabPane.getTabs().addAll(levelTab, berryEarningTab, berryValidityTab, berryConversionTab, needThresholdTab);
-
-            // Create bottom panel with back button
-            VBox bottomBox = new VBox(15);
-            bottomBox.setPadding(new Insets(15));
-            bottomBox.setAlignment(Pos.CENTER);
-
-            Button backButton = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
-            bottomBox.getChildren().add(backButton);
-
-            // Set TabPane in the center
-            proposalsLayout.setCenter(tabPane);
-            proposalsLayout.setBottom(bottomBox);
-
-            // Set the proposals content in the main window
-            setMainContent(proposalsLayout, "Proposals Management");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            DialogFactory.showError("Error displaying proposals view: " + e.getMessage());
+            // Load all proposals from database
+            loadProposalsFromDatabase();
+        } catch (SQLException e) {
+            DialogFactory.showError("Error loading proposals: " + e.getMessage());
+            return;
         }
-    }
-
-    // Generic method to create a proposal tab
-    private static <T extends Proposal> javafx.scene.control.Tab createProposalTab(
-            String tabTitle, String proposalType, Map<Integer, T> proposalMap,
-            Runnable createDialogAction, java.util.function.Function<T, String> detailsFormatter) {
-
-        javafx.scene.control.Tab tab = new javafx.scene.control.Tab(tabTitle);
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        content.setAlignment(Pos.CENTER);
+        
+        VBox content = new VBox(20);
+        content.setPadding(new Insets(30));
         content.setStyle("-fx-background-color: #2e2e2e;");
 
-        ListView<T> proposalListView = new ListView<>();
-        proposalListView.setStyle("-fx-background-color: #3e3e3e; -fx-control-inner-background: #3e3e3e;");
-        proposalListView.setPrefHeight(300);
+        // Header section
+        Label title = new Label("📋 Proposals Management");
+        title.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 28px; -fx-font-weight: bold;");
+        
+        Label subtitle = new Label("View and manage system proposals");
+        subtitle.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic;");
 
-        // Populate proposals
-        proposalListView.getItems().addAll(proposalMap.values());
+        // Filter and action buttons
+        HBox actionBar = new HBox(10);
+        actionBar.setAlignment(Pos.CENTER_LEFT);
+        
+        Button createProposalBtn = new Button("+ Create Proposal");
+        createProposalBtn.setStyle(UIStyleManager.BUTTON_STYLE);
+        createProposalBtn.setOnAction(e -> showCreateProposalDialog());
+        
+        ToggleButton activeOnlyToggle = new ToggleButton("Active Only");
+        activeOnlyToggle.setStyle(UIStyleManager.BUTTON_STYLE);
+        activeOnlyToggle.setSelected(true);
+        
+        Button refreshBtn = new Button("🔄 Refresh");
+        refreshBtn.setStyle(UIStyleManager.BUTTON_STYLE);
+        refreshBtn.setOnAction(e -> refreshProposalContent());
+        
+        actionBar.getChildren().addAll(createProposalBtn, activeOnlyToggle, refreshBtn);
 
-        // Custom cell factory
-        proposalListView.setCellFactory(_ -> new ListCell<T>() {
-            @Override
-            protected void updateItem(T proposal, boolean empty) {
-                super.updateItem(proposal, empty);
-                if (empty || proposal == null) {
-                    setText(null);
-                } else {
-                    String details = detailsFormatter.apply(proposal);
-                    setText("ID: " + proposal.getId() + " | " + details + " | Votes: " + proposal.getVotes() + " | By: " + proposal.getProposer());
-                    setStyle("-fx-text-fill: #d9d9d9;");
-                }
-            }
-        });
+        // Create TabPane for different proposal categories
+        TabPane proposalTabs = new TabPane();
+        proposalTabs.setStyle("-fx-background-color: #2e2e2e; " +
+                              "-fx-tab-header-background: #1e1e1e; " +
+                              "-fx-tab-header-area-tab-padding: 0.3em 0.2em; " +
+                              "-fx-tab-text-fill: #b2b2b2; " +
+                              "-fx-selection-bar: #404040;");
+        proposalTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        // Buttons container
-        HBox buttonBox = new HBox(10);
-        buttonBox.setAlignment(Pos.CENTER);
+        // Create tabs for each proposal type
+        Tab allTab = createProposalTab("All Proposals", "all", activeOnlyToggle.selectedProperty());
+        Tab levelTab = createProposalTab("Level System", "level", activeOnlyToggle.selectedProperty());
+        Tab berryEarningTab = createProposalTab("Berry Earning", "berry_earning", activeOnlyToggle.selectedProperty());
+        Tab berryValidityTab = createProposalTab("Berry Validity", "berry_validity", activeOnlyToggle.selectedProperty());
+        Tab berryConversionTab = createProposalTab("Berry Conversion", "berry_conversion", activeOnlyToggle.selectedProperty());
+        Tab needThresholdTab = createProposalTab("Need Thresholds", "need_threshold", activeOnlyToggle.selectedProperty());
 
-        Button createButton = UIStyleManager.createMenuButton("Create Proposal", _ -> {
-            createDialogAction.run();
-            // Refresh list after potential creation
-            proposalListView.getItems().clear();
-            proposalListView.getItems().addAll(proposalMap.values());
-        });
+        proposalTabs.getTabs().addAll(allTab, levelTab, berryEarningTab, berryValidityTab, berryConversionTab, needThresholdTab);
 
-        Button voteButton = UIStyleManager.createMenuButton("Vote for Proposal", _ -> {
-            T selected = proposalListView.getSelectionModel().getSelectedItem();
-            if (selected == null) {
-                DialogFactory.showInfo("Selection Required", "Please select a proposal to vote for.");
-                return;
-            }
-            User currentUser = SessionManager.getCurrentUser();
-            handleVoteForProposal(proposalType, selected.getId(), currentUser);
-            // Refresh list after voting
-            proposalListView.getItems().clear();
-            proposalListView.getItems().addAll(proposalMap.values());
-            // Reselect if possible
-            proposalListView.getSelectionModel().select(selected);
-        });
+        // Apply additional dark styling to tabs
+        proposalTabs.getStylesheets().add("data:text/css," +
+            ".tab-pane .tab-header-area .tab-header-background { " +
+                "-fx-background-color: #1e1e1e; " +
+            "} " +
+            ".tab-pane .tab { " +
+                "-fx-background-color: #1e1e1e; " +
+                "-fx-text-fill: #b2b2b2; " +
+                "-fx-border-color: #404040; " +
+            "} " +
+            ".tab-pane .tab:selected { " +
+                "-fx-background-color: #404040; " +
+                "-fx-text-fill: #ffffff; " +
+            "} " +
+            ".tab-pane .tab:hover { " +
+                "-fx-background-color: #333333; " +
+            "}");
 
-        buttonBox.getChildren().addAll(createButton, voteButton);
-        content.getChildren().addAll(proposalListView, buttonBox);
-        tab.setContent(content);
+        // Add change listener to refresh content when filter changes
+        activeOnlyToggle.selectedProperty().addListener((obs, oldVal, newVal) -> refreshProposalTabs(proposalTabs, newVal));
+
+        content.getChildren().addAll(title, subtitle, actionBar, proposalTabs);
+        setMainContent(content, "Proposals");
+    }
+
+    private static HBox createProposalStatsBar() {
+        HBox statsBox = new HBox(20);
+        statsBox.setAlignment(Pos.CENTER_LEFT);
+        statsBox.setPadding(new Insets(15));
+        statsBox.setStyle("-fx-background-color: #3e3e3e; -fx-border-radius: 8; -fx-background-radius: 8;");
+
+        // Calculate statistics
+        int totalProposals = 0;
+        int activeProposals = 0;
+        int userVotes = 0;
+
+        try {
+            // Count all proposals
+            totalProposals += levelProposals.size();
+            totalProposals += berryEarningProposals.size();
+            totalProposals += berryValidityProposals.size();
+            totalProposals += berryConversionProposals.size();
+            totalProposals += needThresholdProposals.size();
+
+            // Count active proposals
+            activeProposals = DatabaseManager.getActiveProposals().size();
+
+            // Count user's votes (simplified - in real implementation would query user's vote history)
+            userVotes = (int) (totalProposals * 0.3); // Placeholder calculation
+
+        } catch (Exception e) {
+            System.err.println("Error calculating proposal statistics: " + e.getMessage());
+        }
+
+        VBox totalBox = createStatCard("Total Proposals", String.valueOf(totalProposals), "#4CAF50");
+        VBox activeBox = createStatCard("Active Proposals", String.valueOf(activeProposals), "#2196F3");
+        VBox votesBox = createStatCard("Your Votes", String.valueOf(userVotes), "#FF9800");
+
+        statsBox.getChildren().addAll(totalBox, activeBox, votesBox);
+        return statsBox;
+    }
+
+    private static VBox createStatCard(String title, String value, String color) {
+        VBox card = new VBox(5);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(10));
+        card.setStyle("-fx-background-color: " + color + "33; -fx-border-color: " + color + "; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-radius: 5;");
+
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 12px;");
+
+        Label valueLabel = new Label(value);
+        valueLabel.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        card.getChildren().addAll(valueLabel, titleLabel);
+        return card;
+    }
+
+    private static Tab createProposalTab(String tabName, String category, BooleanProperty activeOnly) {
+        Tab tab = new Tab(tabName);
+        tab.setStyle("-fx-background-color: #1e1e1e; " +
+                     "-fx-text-base-color: #b2b2b2; " +
+                     "-fx-text-fill: #b2b2b2; " +
+                     "-fx-focus-color: transparent; " +
+                     "-fx-faint-focus-color: transparent;");
+        
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: #2e2e2e; -fx-background-color: #2e2e2e;");
+        
+        VBox proposalList = new VBox(15);
+        proposalList.setPadding(new Insets(20));
+        
+        // Load proposals based on category
+        loadProposalsForCategory(proposalList, category, activeOnly.get());
+        
+        scrollPane.setContent(proposalList);
+        tab.setContent(scrollPane);
+        
         return tab;
     }
 
-    // --- Dialog Creation Methods for Proposals ---
-
-    private static void createLevelProposalDialog() {
-        Dialog<Map<String, Object>> dialog = new Dialog<>();
-        dialog.setTitle("Create Level Proposal");
-        dialog.setHeaderText("Enter proposal details");
+    private static void loadProposalsForCategory(VBox proposalList, String category, boolean activeOnly) {
+        proposalList.getChildren().clear();
         
-        ButtonType submitButtonType = new ButtonType("Submit", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-
-        TextField xpIncreaseField = new TextField();
-        xpIncreaseField.setPromptText("XP Increase (%)");
-        xpIncreaseField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-        
-        TextField xpThresholdField = new TextField();
-        xpThresholdField.setPromptText("XP Threshold");
-        xpThresholdField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-
-        // Style labels
-        Label increaseLabel = new Label("XP Increase (%):");
-        increaseLabel.setStyle(UIStyleManager.LABEL_STYLE);
-        
-        Label thresholdLabel = new Label("XP Threshold:");
-        thresholdLabel.setStyle(UIStyleManager.LABEL_STYLE);
-
-        grid.add(increaseLabel, 0, 0);
-        grid.add(xpIncreaseField, 1, 0);
-        grid.add(thresholdLabel, 0, 1);
-        grid.add(xpThresholdField, 1, 1);
-
-        // Apply UIStyleManager enhancement instead of manual styling
-        dialog.getDialogPane().setContent(grid);
-        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
-
-        Platform.runLater(() -> xpIncreaseField.requestFocus());
-
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == submitButtonType) {
-                try {
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("xpIncrease", Double.parseDouble(xpIncreaseField.getText().trim()));
-                    result.put("xpThreshold", Double.parseDouble(xpThresholdField.getText().trim()));
-                    return result;
-                } catch (NumberFormatException ex) {
-                    DialogFactory.showError("Invalid number format.");
-                    return null;
-                }
+        try {
+            switch (category) {
+                case "all":
+                    loadAllProposalsIntoList(proposalList, activeOnly);
+                    break;
+                case "level":
+                    loadLevelProposalsIntoList(proposalList, activeOnly);
+                    break;
+                case "berry_earning":
+                    loadBerryEarningProposalsIntoList(proposalList, activeOnly);
+                    break;
+                case "berry_validity":
+                    loadBerryValidityProposalsIntoList(proposalList, activeOnly);
+                    break;
+                case "berry_conversion":
+                    loadBerryConversionProposalsIntoList(proposalList, activeOnly);
+                    break;
+                case "need_threshold":
+                    loadNeedThresholdProposalsIntoList(proposalList, activeOnly);
+                    break;
             }
-            return null;
-        });
-
-        Optional<Map<String, Object>> result = dialog.showAndWait();
-        result.ifPresent(data -> {
-            double xpIncrease = (double) data.get("xpIncrease");
-            double xpThreshold = (double) data.get("xpThreshold");
-            String proposer = SessionManager.getCurrentUser().getUsername();
-            handleCreateLevelProposal(proposer, xpIncrease, xpThreshold);
-        });
-    }
-
-    private static void createBerryEarningProposalDialog() {
-        Dialog<Map<String, Object>> dialog = new Dialog<>();
-        dialog.setTitle("Create Berry Earning Proposal");
-        dialog.setHeaderText("Enter proposal details");
-
-        ButtonType submitButtonType = new ButtonType("Submit", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-
-        TextField initialEarningField = new TextField();
-        initialEarningField.setPromptText("Initial Level 1 Earning");
-        initialEarningField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-
-        Label earningLabel = new Label("Initial Lvl 1 Earning:");
-        earningLabel.setStyle(UIStyleManager.LABEL_STYLE);
-
-        grid.add(earningLabel, 0, 0);
-        grid.add(initialEarningField, 1, 0);
-
-        // Apply UIStyleManager enhancement instead of manual styling
-        dialog.getDialogPane().setContent(grid);
-        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
-
-        Platform.runLater(() -> initialEarningField.requestFocus());
-
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == submitButtonType) {
-                try {
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("initialEarning", Integer.parseInt(initialEarningField.getText().trim()));
-                    return result;
-                } catch (NumberFormatException ex) {
-                    DialogFactory.showError("Invalid number format.");
-                    return null;
-                }
-            }
-            return null;
-        });
-
-        Optional<Map<String, Object>> result = dialog.showAndWait();
-        result.ifPresent(data -> {
-            int initialEarning = (int) data.get("initialEarning");
-            String proposer = SessionManager.getCurrentUser().getUsername();
-            try {
-                ProposalService.createBerryEarningProposal(proposer, initialEarning);
-            } catch (SQLException e) {
-                DialogFactory.showError("Error creating proposal: " + e.getMessage());
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private static void createBerryValidityProposalDialog() {
-        Dialog<Map<String, Object>> dialog = new Dialog<>();
-        dialog.setTitle("Create Berry Validity Proposal");
-        dialog.setHeaderText("Enter proposal details");
-
-        ButtonType submitButtonType = new ButtonType("Submit", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-
-        TextField monthsField = new TextField();
-        monthsField.setPromptText("Validity (Months)");
-        monthsField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-
-        Label monthsLabel = new Label("Validity (Months):");
-        monthsLabel.setStyle(UIStyleManager.LABEL_STYLE);
-
-        grid.add(monthsLabel, 0, 0);
-        grid.add(monthsField, 1, 0);
-
-        // Apply UIStyleManager enhancement instead of manual styling
-        dialog.getDialogPane().setContent(grid);
-        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
-
-        Platform.runLater(() -> monthsField.requestFocus());
-
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == submitButtonType) {
-                try {
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("months", Integer.parseInt(monthsField.getText().trim()));
-                    return result;
-                } catch (NumberFormatException ex) {
-                    DialogFactory.showError("Invalid number format.");
-                    return null;
-                }
-            }
-            return null;
-        });
-
-        Optional<Map<String, Object>> result = dialog.showAndWait();
-        result.ifPresent(data -> {
-            int months = (int) data.get("months");
-            String proposer = SessionManager.getCurrentUser().getUsername();
-            try {
-                ProposalService.createBerryValidityProposal(proposer, months);
-            } catch (SQLException e) {
-                DialogFactory.showError("Error creating proposal: " + e.getMessage());
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private static void createBerryConversionProposalDialog() {
-        Dialog<Map<String, Object>> dialog = new Dialog<>();
-        dialog.setTitle("Create Berry Conversion Proposal");
-        dialog.setHeaderText("Enter proposal details");
-
-        ButtonType submitButtonType = new ButtonType("Submit", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-
-        TextField percentageField = new TextField();
-        percentageField.setPromptText("Conversion Percentage (%)");
-        percentageField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-        
-        TextField periodField = new TextField();
-        periodField.setPromptText("Conversion Period (Months)");
-        periodField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-
-        Label percentageLabel = new Label("Conversion (%):");
-        percentageLabel.setStyle(UIStyleManager.LABEL_STYLE);
-        
-        Label periodLabel = new Label("Period (Months):");
-        periodLabel.setStyle(UIStyleManager.LABEL_STYLE);
-
-        grid.add(percentageLabel, 0, 0);
-        grid.add(percentageField, 1, 0);
-        grid.add(periodLabel, 0, 1);
-        grid.add(periodField, 1, 1);
-
-        // Apply UIStyleManager enhancement instead of manual styling
-        dialog.getDialogPane().setContent(grid);
-        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
-
-        Platform.runLater(() -> percentageField.requestFocus());
-
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == submitButtonType) {
-                try {
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("percentage", Double.parseDouble(percentageField.getText().trim()));
-                    result.put("period", Integer.parseInt(periodField.getText().trim()));
-                    return result;
-                } catch (NumberFormatException ex) {
-                    DialogFactory.showError("Invalid number format.");
-                    return null;
-                }
-            }
-            return null;
-        });
-
-        Optional<Map<String, Object>> result = dialog.showAndWait();
-        result.ifPresent(data -> {
-            double percentage = (double) data.get("percentage");
-            int period = (int) data.get("period");
-            String proposer = SessionManager.getCurrentUser().getUsername();
-            try {
-                ProposalService.createBerryConversionProposal(proposer, percentage, period);
-            } catch (SQLException e) {
-                DialogFactory.showError("Error creating proposal: " + e.getMessage());
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private static void createNeedThresholdProposalDialog() {
-        Dialog<Map<String, Object>> dialog = new Dialog<>();
-        dialog.setTitle("Create Need Threshold Proposal");
-        dialog.setHeaderText("Enter Need Threshold proposal details");
-
-        ButtonType submitButtonType = new ButtonType("Submit", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(submitButtonType, ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-
-        // Create form fields
-        TextField globalThresholdField = new TextField();
-        globalThresholdField.setPromptText("Global Threshold (%)");
-        globalThresholdField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-        
-        TextField personalThresholdField = new TextField();
-        personalThresholdField.setPromptText("Personal Threshold (%)");
-        personalThresholdField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-        
-        TextField timeLimitField = new TextField();
-        timeLimitField.setPromptText("Time Limit (months)");
-        timeLimitField.setStyle(UIStyleManager.TEXT_FIELD_STYLE_DARK);
-        
-        // Branch selection removed as Need Threshold Proposals now apply to all branches
-
-        // Style labels
-        Label globalThresholdLabel = new Label("Global Threshold (%):");
-        globalThresholdLabel.setStyle(UIStyleManager.LABEL_STYLE);
-        
-        Label personalThresholdLabel = new Label("Personal Threshold (%):");
-        personalThresholdLabel.setStyle(UIStyleManager.LABEL_STYLE);
-        
-        Label timeLimitLabel = new Label("Time Limit (months):");
-        timeLimitLabel.setStyle(UIStyleManager.LABEL_STYLE);
-
-        // Add fields to grid
-        grid.add(globalThresholdLabel, 0, 0);
-        grid.add(globalThresholdField, 1, 0);
-        grid.add(personalThresholdLabel, 0, 1);
-        grid.add(personalThresholdField, 1, 1);
-        grid.add(timeLimitLabel, 0, 2);
-        grid.add(timeLimitField, 1, 2);
-
-        // Apply UIStyleManager enhancement for consistent dialog styling
-        dialog.getDialogPane().setContent(grid);
-        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
-
-        Platform.runLater(() -> globalThresholdField.requestFocus());
-
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == submitButtonType) {
-                try {
-                    Map<String, Object> result = new HashMap<>();
-                    
-                    // Validate and parse inputs
-                    double globalThreshold = Double.parseDouble(globalThresholdField.getText().trim());
-                    double personalThreshold = Double.parseDouble(personalThresholdField.getText().trim());
-                    int timeLimit = Integer.parseInt(timeLimitField.getText().trim());
-                    
-                    if (globalThreshold < 0 || globalThreshold > 100 || personalThreshold < 0 || personalThreshold > 100) {
-                        DialogFactory.showError("Threshold percentages must be between 0 and 100");
-                        return null;
-                    }
-                    
-                    if (timeLimit <= 0) {
-                        DialogFactory.showError("Time limit must be a positive number of months");
-                        return null;
-                    }
-                    
-                    // Add validated values to result
-                    result.put("globalThreshold", globalThreshold);
-                    result.put("personalThreshold", personalThreshold);
-                    result.put("timeLimit", timeLimit);
-                    
-                    return result;
-                } catch (NumberFormatException ex) {
-                    DialogFactory.showError("Please enter valid numbers for all fields");
-                }
-            }
-            return null;
-        });
-
-        Optional<Map<String, Object>> result = dialog.showAndWait();
-        result.ifPresent(data -> {
-            double globalThreshold = (double) data.get("globalThreshold");
-            double personalThreshold = (double) data.get("personalThreshold");
-            int timeLimit = (int) data.get("timeLimit");
             
-            String proposer = SessionManager.getCurrentUser().getUsername();
+            if (proposalList.getChildren().isEmpty()) {
+                Label emptyLabel = new Label("No proposals found in this category");
+                emptyLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic;");
+                proposalList.getChildren().add(emptyLabel);
+            }
             
-            try {
-                ProposalService.createNeedThresholdProposal(proposer, globalThreshold, personalThreshold, timeLimit);
-            } catch (SQLException e) {
-                DialogFactory.showError("Error creating Need Threshold proposal: " + e.getMessage());
-                e.printStackTrace();
+        } catch (Exception e) {
+            Label errorLabel = new Label("Error loading proposals: " + e.getMessage());
+            errorLabel.setStyle("-fx-text-fill: #f44336; -fx-font-size: 14px;");
+            proposalList.getChildren().add(errorLabel);
+        }
+    }
+
+    private static void loadAllProposalsIntoList(VBox proposalList, boolean activeOnly) {
+        // Load all proposal types
+        loadLevelProposalsIntoList(proposalList, activeOnly);
+        loadBerryEarningProposalsIntoList(proposalList, activeOnly);
+        loadBerryValidityProposalsIntoList(proposalList, activeOnly);
+        loadBerryConversionProposalsIntoList(proposalList, activeOnly);
+        loadNeedThresholdProposalsIntoList(proposalList, activeOnly);
+    }
+
+    private static void loadLevelProposalsIntoList(VBox proposalList, boolean activeOnly) {
+        for (LevelProposal proposal : levelProposals.values()) {
+            if (!activeOnly || proposal.getVotes() > 0) {
+                proposalList.getChildren().add(createLevelProposalCard(proposal));
+            }
+        }
+    }
+
+    private static void loadBerryEarningProposalsIntoList(VBox proposalList, boolean activeOnly) {
+        for (BerryEarningProposal proposal : berryEarningProposals.values()) {
+            if (!activeOnly || proposal.getVotes() > 0) {
+                proposalList.getChildren().add(createBerryEarningProposalCard(proposal));
+            }
+        }
+    }
+
+    private static void loadBerryValidityProposalsIntoList(VBox proposalList, boolean activeOnly) {
+        for (BerryValidityProposal proposal : berryValidityProposals.values()) {
+            if (!activeOnly || proposal.getVotes() > 0) {
+                proposalList.getChildren().add(createBerryValidityProposalCard(proposal));
+            }
+        }
+    }
+
+    private static void loadBerryConversionProposalsIntoList(VBox proposalList, boolean activeOnly) {
+        for (BerryConversionProposal proposal : berryConversionProposals.values()) {
+            if (!activeOnly || proposal.getVotes() > 0) {
+                proposalList.getChildren().add(createBerryConversionProposalCard(proposal));
+            }
+        }
+    }
+
+    private static void loadNeedThresholdProposalsIntoList(VBox proposalList, boolean activeOnly) {
+        for (NeedThresholdProposal proposal : needThresholdProposals.values()) {
+            if (!activeOnly || proposal.getVotes() > 0) {
+                proposalList.getChildren().add(createNeedThresholdProposalCard(proposal));
+            }
+        }
+    }
+
+    private static VBox createLevelProposalCard(LevelProposal proposal) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #3e3e3e; -fx-border-radius: 8; -fx-background-radius: 8; -fx-border-color: #4CAF50; -fx-border-width: 1;");
+
+        HBox headerBox = new HBox();
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label titleLabel = new Label("🏆 Level System Proposal #" + proposal.getId());
+        titleLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label statusLabel = new Label(proposal.getVotes() > 0 ? "ACTIVE" : "INACTIVE");
+        statusLabel.setStyle("-fx-text-fill: " + (proposal.getVotes() > 0 ? "#4CAF50" : "#f44336") + "; -fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        headerBox.getChildren().addAll(titleLabel, spacer, statusLabel);
+
+        Label descLabel = new Label("XP Increase: " + proposal.getXpIncreasePercentage() + "% | XP Threshold: " + proposal.getXpThreshold());
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px;");
+
+        Label authorLabel = new Label("Proposed by: " + proposal.getProposer());
+        authorLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+
+        HBox voteBox = createVoteBox(proposal.getVotes(), 0, proposal.getId(), "level");
+
+        card.getChildren().addAll(headerBox, descLabel, authorLabel, voteBox);
+        return card;
+    }
+
+    private static VBox createBerryEarningProposalCard(BerryEarningProposal proposal) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #3e3e3e; -fx-border-radius: 8; -fx-background-radius: 8; -fx-border-color: #FF9800; -fx-border-width: 1;");
+
+        HBox headerBox = new HBox();
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label titleLabel = new Label("🍓 Berry Earning Proposal #" + proposal.getId());
+        titleLabel.setStyle("-fx-text-fill: #FF9800; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label statusLabel = new Label(proposal.getVotes() > 0 ? "ACTIVE" : "INACTIVE");
+        statusLabel.setStyle("-fx-text-fill: " + (proposal.getVotes() > 0 ? "#4CAF50" : "#f44336") + "; -fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        headerBox.getChildren().addAll(titleLabel, spacer, statusLabel);
+
+        Label descLabel = new Label("Initial Berries: " + proposal.getInitialLevelOneBerryEarning());
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px;");
+
+        Label authorLabel = new Label("Proposed by: " + proposal.getProposer());
+        authorLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+
+        HBox voteBox = createVoteBox(proposal.getVotes(), 0, proposal.getId(), "berry_earning");
+
+        card.getChildren().addAll(headerBox, descLabel, authorLabel, voteBox);
+        return card;
+    }
+
+    private static VBox createBerryValidityProposalCard(BerryValidityProposal proposal) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #3e3e3e; -fx-border-radius: 8; -fx-background-radius: 8; -fx-border-color: #9C27B0; -fx-border-width: 1;");
+
+        HBox headerBox = new HBox();
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label titleLabel = new Label("⏰ Berry Validity Proposal #" + proposal.getId());
+        titleLabel.setStyle("-fx-text-fill: #9C27B0; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label statusLabel = new Label(proposal.getVotes() > 0 ? "ACTIVE" : "INACTIVE");
+        statusLabel.setStyle("-fx-text-fill: " + (proposal.getVotes() > 0 ? "#4CAF50" : "#f44336") + "; -fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        headerBox.getChildren().addAll(titleLabel, spacer, statusLabel);
+
+        Label descLabel = new Label("Validity Period: " + proposal.getValidityMonths() + " months");
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px;");
+
+        Label authorLabel = new Label("Proposed by: " + proposal.getProposer());
+        authorLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+
+        HBox voteBox = createVoteBox(proposal.getVotes(), 0, proposal.getId(), "berry_validity");
+
+        card.getChildren().addAll(headerBox, descLabel, authorLabel, voteBox);
+        return card;
+    }
+
+    private static VBox createBerryConversionProposalCard(BerryConversionProposal proposal) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #3e3e3e; -fx-border-radius: 8; -fx-background-radius: 8; -fx-border-color: #00BCD4; -fx-border-width: 1;");
+
+        HBox headerBox = new HBox();
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label titleLabel = new Label("🔄 Berry Conversion Proposal #" + proposal.getId());
+        titleLabel.setStyle("-fx-text-fill: #00BCD4; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label statusLabel = new Label(proposal.getVotes() > 0 ? "ACTIVE" : "INACTIVE");
+        statusLabel.setStyle("-fx-text-fill: " + (proposal.getVotes() > 0 ? "#4CAF50" : "#f44336") + "; -fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        headerBox.getChildren().addAll(titleLabel, spacer, statusLabel);
+
+        Label descLabel = new Label("Conversion Rate: " + proposal.getConversionPercentage() + "%");
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px;");
+
+        Label authorLabel = new Label("Proposed by: " + proposal.getProposer());
+        authorLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+
+        HBox voteBox = createVoteBox(proposal.getVotes(), 0, proposal.getId(), "berry_conversion");
+
+        card.getChildren().addAll(headerBox, descLabel, authorLabel, voteBox);
+        return card;
+    }
+
+    private static VBox createNeedThresholdProposalCard(NeedThresholdProposal proposal) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #3e3e3e; -fx-border-radius: 8; -fx-background-radius: 8; -fx-border-color: #F44336; -fx-border-width: 1;");
+
+        HBox headerBox = new HBox();
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label titleLabel = new Label("📊 Need Threshold Proposal #" + proposal.getId());
+        titleLabel.setStyle("-fx-text-fill: #F44336; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label statusLabel = new Label(proposal.getVotes() > 0 ? "ACTIVE" : "INACTIVE");
+        statusLabel.setStyle("-fx-text-fill: " + (proposal.getVotes() > 0 ? "#4CAF50" : "#f44336") + "; -fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        headerBox.getChildren().addAll(titleLabel, spacer, statusLabel);
+
+        Label descLabel = new Label("Global: " + proposal.getGlobalThresholdPercent() + "% | Personal: " + proposal.getPersonalThresholdPercent() + "%");
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px;");
+
+        Label authorLabel = new Label("Proposed by: " + proposal.getProposer());
+        authorLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+
+        HBox voteBox = createVoteBox(proposal.getVotes(), 0, proposal.getId(), "need_threshold");
+
+        card.getChildren().addAll(headerBox, descLabel, authorLabel, voteBox);
+        return card;
+    }
+
+    private static HBox createVoteBox(int votesFor, int votesAgainst, int proposalId, String proposalType) {
+        HBox voteBox = new HBox(10);
+        voteBox.setAlignment(Pos.CENTER_LEFT);
+
+        Label votesLabel = new Label("👍 " + votesFor + " votes");
+        votesLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+
+        Button voteForBtn = new Button("Vote For");
+        voteForBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-border-radius: 4; -fx-background-radius: 4; -fx-font-size: 11px;");
+        voteForBtn.setOnAction(event -> handleVote(proposalId, proposalType, true));
+
+        voteBox.getChildren().addAll(votesLabel, voteForBtn);
+        return voteBox;
+    }
+
+    private static void handleVote(int proposalId, String proposalType, boolean isFor) {
+        try {
+            // Use the actual voting system through ProposalService
+            ProposalService.voteOnProposal(proposalId, SessionManager.getCurrentUsername(), isFor);
+            
+            // Refresh the current view
+            refreshProposalContent();
+            
+        } catch (Exception e) {
+            System.err.println("Error recording vote: " + e.getMessage());
+            DialogFactory.showError("Failed to record your vote: " + e.getMessage());
+        }
+    }
+
+    private static void showCreateProposalDialog() {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Create New Proposal");
+        dialog.setHeaderText("Select the type of proposal to create:");
+
+        DialogPane dialogPane = dialog.getDialogPane();
+        dialogPane.setStyle("-fx-background-color: #2e2e2e;");
+        dialogPane.lookup(".header-panel .label").setStyle("-fx-text-fill: #ffffff;");
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+
+        Button levelBtn = new Button("🏆 Level System Proposal");
+        levelBtn.setStyle(UIStyleManager.BUTTON_STYLE);
+        levelBtn.setOnAction(e -> {
+            dialog.setResult("level");
+            dialog.close();
+        });
+
+        Button berryEarningBtn = new Button("🍓 Berry Earning Proposal");
+        berryEarningBtn.setStyle(UIStyleManager.BUTTON_STYLE);
+        berryEarningBtn.setOnAction(e -> {
+            dialog.setResult("berry_earning");
+            dialog.close();
+        });
+
+        Button berryValidityBtn = new Button("⏰ Berry Validity Proposal");
+        berryValidityBtn.setStyle(UIStyleManager.BUTTON_STYLE);
+        berryValidityBtn.setOnAction(e -> {
+            dialog.setResult("berry_validity");
+            dialog.close();
+        });
+
+        Button berryConversionBtn = new Button("🔄 Berry Conversion Proposal");
+        berryConversionBtn.setStyle(UIStyleManager.BUTTON_STYLE);
+        berryConversionBtn.setOnAction(e -> {
+            dialog.setResult("berry_conversion");
+            dialog.close();
+        });
+
+        Button needThresholdBtn = new Button("📊 Need Threshold Proposal");
+        needThresholdBtn.setStyle(UIStyleManager.BUTTON_STYLE);
+        needThresholdBtn.setOnAction(e -> {
+            dialog.setResult("need_threshold");
+            dialog.close();
+        });
+
+        content.getChildren().addAll(levelBtn, berryEarningBtn, berryValidityBtn, berryConversionBtn, needThresholdBtn);
+        dialogPane.setContent(content);
+
+        ButtonType cancelButtonType = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().add(cancelButtonType);
+
+        dialog.showAndWait().ifPresent(proposalType -> {
+            if (!proposalType.equals("Cancel")) {
+                showCreateSpecificProposalDialog(proposalType);
             }
         });
+    }
+
+    private static void showCreateSpecificProposalDialog(String proposalType) {
+        // This would open specific dialog for each proposal type
+        // For now, show a placeholder
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Create " + proposalType + " Proposal");
+        alert.setHeaderText(null);
+        alert.setContentText("Create " + proposalType + " proposal dialog would open here.\n\nThis would include fields specific to " + proposalType + " proposals.");
+        
+        DialogPane dialogPane = alert.getDialogPane();
+        dialogPane.setStyle("-fx-background-color: #2e2e2e;");
+        dialogPane.lookup(".content.label").setStyle("-fx-text-fill: #ffffff;");
+        
+        alert.showAndWait();
+    }
+
+    private static void refreshProposalContent() {
+        // Refresh the current proposals view
+        handleShowProposals();
+    }
+
+    private static void refreshProposalTabs(TabPane tabPane, boolean activeOnly) {
+        for (Tab tab : tabPane.getTabs()) {
+            ScrollPane scrollPane = (ScrollPane) tab.getContent();
+            VBox proposalList = (VBox) scrollPane.getContent();
+            
+            String category = switch (tab.getText()) {
+                case "All Proposals" -> "all";
+                case "Level System" -> "level";
+                case "Berry Earning" -> "berry_earning";
+                case "Berry Validity" -> "berry_validity";
+                case "Berry Conversion" -> "berry_conversion";
+                case "Need Thresholds" -> "need_threshold";
+                default -> "all";
+            };
+            
+            loadProposalsForCategory(proposalList, category, activeOnly);
+        }
+    }
+
+    private static void handleShowJobs() {
+        VBox content = new VBox(20);
+        content.setPadding(new Insets(30));
+        content.setStyle("-fx-background-color: #2e2e2e;");
+
+        Label titleLabel = new Label("💼 Job Opportunities");
+        titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 28px; -fx-font-weight: bold;");
+        content.getChildren().add(titleLabel);
+
+        User currentUser = SessionManager.getCurrentUser();
+        if (currentUser == null) {
+            Label loginLabel = new Label("Please log in to see job opportunities.");
+            loginLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 16px;");
+            content.getChildren().add(loginLabel);
+            setMainContent(content, "Jobs");
+            return;
+        }
+
+        try {
+            // Corrected: Use getCertifiedExpertiseIds and getExpertiseIdsForUser
+            Set<Integer> userExpertiseIds = currentUser.getCertifiedExpertiseIds();
+            if (userExpertiseIds == null || userExpertiseIds.isEmpty()) { 
+                userExpertiseIds = DatabaseManager.getExpertiseIdsForUser(currentUser.getUsername());
+                currentUser.setCertifiedExpertiseIds(userExpertiseIds); 
+            }
+            
+            Map<Integer, Branch> branches = DatabaseManager.loadAllBranches();
+            List<VBox> jobCards = new ArrayList<>();
+
+            for (Branch branch : branches.values()) {
+                // Corrected: Use newly added getAllTeamOpeningsForBranch
+                List<ExpertiseRequirement> teamOpenings = DatabaseManager.getAllTeamOpeningsForBranch(branch.getId());
+                if (teamOpenings != null) {
+                    for (ExpertiseRequirement opening : teamOpenings) {
+                        // Corrected: Check against userExpertiseIds (Set<Integer>)
+                        boolean matchesExpertise = userExpertiseIds.contains(opening.getExpertiseId());
+
+                        if (matchesExpertise) {
+                            jobCards.add(createJobCard(branch, opening));
+                        }
+                    }
+                }
+            }
+
+            if (jobCards.isEmpty()) {
+                Label noJobsLabel = new Label("No job openings match your fields of expertise at the moment.");
+                noJobsLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 16px; -fx-font-style: italic;");
+                noJobsLabel.setAlignment(Pos.CENTER);
+                content.getChildren().add(noJobsLabel);
+            } else {
+                ScrollPane scrollPane = new ScrollPane();
+                VBox jobListVBox = new VBox(15);
+                jobListVBox.setPadding(new Insets(10));
+                jobListVBox.getChildren().addAll(jobCards);
+                scrollPane.setContent(jobListVBox);
+                scrollPane.setFitToWidth(true);
+                scrollPane.setStyle("-fx-background: #2e2e2e; -fx-background-color: #2e2e2e;");
+                content.getChildren().add(scrollPane);
+            }
+
+        } catch (SQLException e) {
+            DialogFactory.showError("Error loading job opportunities: " + e.getMessage());
+            Label errorLabel = new Label("Could not load job opportunities. Please try again later.");
+            errorLabel.setStyle("-fx-text-fill: #f44336; -fx-font-size: 16px;");
+            content.getChildren().add(errorLabel);
+        }
+
+        setMainContent(content, "Jobs");
+    }
+
+    private static VBox createJobCard(Branch branch, ExpertiseRequirement opening) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #3e3e3e; -fx-border-radius: 8; -fx-background-radius: 8; -fx-border-color: #0077aa; -fx-border-width: 1;");
+
+        // Corrected: Use getExpertiseId()
+        Label jobTitleLabel = new Label("Role: " + fieldsOfExpertise.get(opening.getExpertiseId()).getName());
+        jobTitleLabel.setStyle("-fx-text-fill: #00AACC; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        Label branchLabel = new Label("Project Branch: " + branch.getName() + " (ID: " + branch.getId() + ")");
+        branchLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px;");
+
+        // Corrected: Use newly added getDescription()
+        Label descriptionLabel = new Label("Description: " + (opening.getDescription() != null ? opening.getDescription() : "No description provided."));
+        descriptionLabel.setWrapText(true);
+        descriptionLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+        
+        // Corrected: Use getCount()
+        Label openingsLabel = new Label("Open Positions: " + opening.getCount());
+        openingsLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 12px;");
+
+        Button applyButton = new Button("View Details / Apply");
+        // Corrected: Use BUTTON_STYLE as BUTTON_STYLE_SUCCESS is not defined
+        applyButton.setStyle(UIStyleManager.BUTTON_STYLE);
+        applyButton.setOnAction(e -> {
+            // Placeholder for apply/view details action
+            DialogFactory.showInfo("Application Info", "Viewing details for " + fieldsOfExpertise.get(opening.getExpertiseId()).getName() + " at " + branch.getName() + ".\\\\nFurther implementation needed for application process.");
+        });
+
+        card.getChildren().addAll(jobTitleLabel, branchLabel, descriptionLabel, openingsLabel, applyButton);
+        return card;
+    }
+
+    private static void handleShowNotifications() {
+        try {
+            User currentUser = SessionManager.getCurrentUser();
+            VBox content = new VBox(20);
+            content.setPadding(new Insets(30));
+            content.setStyle("-fx-background-color: #2e2e2e;");
+
+            // Enhanced Header Section
+            VBox header = new VBox(15);
+            header.setAlignment(Pos.CENTER_LEFT);
+            
+            Label titleLabel = new Label("🔔 Notifications Center");
+            titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 28px; -fx-font-weight: bold;");
+            
+            Label subtitle = new Label("Stay updated with the latest activities and opportunities");
+            subtitle.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic;");
+
+            // Load notifications from the database
+            List<Notification> notifications = DatabaseManager.getUserNotifications(currentUser.getUsername());
+            
+            // Stats bar
+            HBox statsBar = new HBox(30);
+            statsBar.setAlignment(Pos.CENTER_LEFT);
+            statsBar.setPadding(new Insets(15));
+            statsBar.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px;");
+            
+            int totalNotifications = notifications != null ? notifications.size() : 0;
+            long unreadCount = notifications != null ? notifications.stream().filter(n -> !n.isRead()).count() : 0;
+            long readCount = totalNotifications - unreadCount;
+            
+            Label totalLabel = new Label("📊 Total: " + totalNotifications);
+            totalLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            Label unreadLabel = new Label("🔴 Unread: " + unreadCount);
+            unreadLabel.setStyle("-fx-text-fill: #ff6b6b; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            Label readLabel = new Label("✅ Read: " + readCount);
+            readLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            statsBar.getChildren().addAll(totalLabel, unreadLabel, readLabel);
+            header.getChildren().addAll(titleLabel, subtitle, statsBar);
+            content.getChildren().add(header);
+
+            // Action buttons
+            HBox actionBar = new HBox(15);
+            actionBar.setAlignment(Pos.CENTER_LEFT);
+            actionBar.setPadding(new Insets(10, 0, 20, 0));
+            
+            Button refreshButton = createStyledButton("🔄 Refresh", "#4CAF50");
+            refreshButton.setOnAction(_ -> handleShowNotifications());
+            
+            Button markAllReadButton = createStyledButton("✓ Mark All Read", "#2196F3");
+            markAllReadButton.setOnAction(_ -> {
+                try {
+                    DatabaseManager.markAllNotificationsAsRead(currentUser.getUsername());
+                    DialogFactory.showInfo("Success", "All notifications marked as read!");
+                    handleShowNotifications(); // Refresh the view
+                } catch (SQLException ex) {
+                    DialogFactory.showError("Error marking notifications as read: " + ex.getMessage());
+                }
+            });
+            
+            actionBar.getChildren().addAll(refreshButton, markAllReadButton);
+            content.getChildren().add(actionBar);
+            
+            if (notifications == null || notifications.isEmpty()) {
+                // Enhanced empty state
+                VBox emptyState = new VBox(20);
+                emptyState.setAlignment(Pos.CENTER);
+                emptyState.setPadding(new Insets(40));
+                emptyState.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 12px; -fx-border-color: #555; -fx-border-radius: 12px;");
+                
+                Label emptyIcon = new Label("📭");
+                emptyIcon.setStyle("-fx-font-size: 48px;");
+                
+                Label emptyTitle = new Label("No Notifications Yet");
+                emptyTitle.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 20px; -fx-font-weight: bold;");
+                
+                Label emptyDescription = new Label("You're all caught up! New notifications will appear here when they arrive.");
+                emptyDescription.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-text-alignment: center;");
+                emptyDescription.setWrapText(true);
+                emptyDescription.setMaxWidth(400);
+                
+                emptyState.getChildren().addAll(emptyIcon, emptyTitle, emptyDescription);
+                content.getChildren().add(emptyState);
+            } else {
+                // Notifications list with enhanced cards
+                VBox notificationsList = new VBox(12);
+                notificationsList.setAlignment(Pos.TOP_CENTER);
+                
+                // Sort notifications by timestamp (newest first)
+                notifications.sort((n1, n2) -> n2.getTimestamp().compareTo(n1.getTimestamp()));
+                
+                for (Notification notification : notifications) {
+                    VBox notificationCard = createNotificationCard(notification, currentUser);
+                    notificationsList.getChildren().add(notificationCard);
+                }
+                
+                // Wrap in scroll pane for better handling of many notifications
+                ScrollPane scrollPane = new ScrollPane(notificationsList);
+                scrollPane.setFitToWidth(true);
+                scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+                scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+                scrollPane.setStyle("-fx-background: #2e2e2e; -fx-background-color: #2e2e2e;");
+                scrollPane.setPrefHeight(500);
+                
+                content.getChildren().add(scrollPane);
+            }
+
+            setMainContent(content, "Notifications");
+        } catch (SQLException e) {
+            DialogFactory.showError("Error loading notifications: " + e.getMessage());
+        }
+    }
+
+    // Helper method to create enhanced notification cards
+    private static VBox createNotificationCard(Notification notification, User currentUser) {
+        VBox card = new VBox(12);
+        card.setPadding(new Insets(20));
+        card.setMaxWidth(800);
+        card.setPrefWidth(800);
+        
+        // Determine card styling based on read status
+        String cardStyle = notification.isRead() 
+            ? "-fx-background-color: #3e3e3e; -fx-background-radius: 12px; -fx-border-color: #555; -fx-border-radius: 12px; -fx-border-width: 1px;"
+            : "-fx-background-color: #4a4a4a; -fx-background-radius: 12px; -fx-border-color: #76ff76; -fx-border-radius: 12px; -fx-border-width: 2px; -fx-effect: dropshadow(gaussian, rgba(118,255,118,0.3), 8, 0, 0, 0);";
+        
+        card.setStyle(cardStyle);
+        
+        // Header with status indicator and date
+        HBox headerRow = new HBox(15);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
+        
+        // Status indicator
+        Label statusIndicator = new Label(notification.isRead() ? "✅" : "🔴");
+        statusIndicator.setStyle("-fx-font-size: 16px;");
+        
+        // Notification type icon (based on content)
+        String typeIcon = getNotificationTypeIcon(notification.getMessage());
+        Label typeLabel = new Label(typeIcon);
+        typeLabel.setStyle("-fx-font-size: 18px;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        // Formatted date
+        String formattedDate = formatNotificationDate(notification.getTimestamp());
+        Label dateLabel = new Label(formattedDate);
+        dateLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        headerRow.getChildren().addAll(statusIndicator, typeLabel, spacer, dateLabel);
+        
+        // Message content
+        Label messageLabel = new Label(notification.getMessage());
+        messageLabel.setStyle(notification.isRead() 
+            ? "-fx-text-fill: #d0d0d0; -fx-font-size: 15px; -fx-line-spacing: 2px;"
+            : "-fx-text-fill: #ffffff; -fx-font-size: 15px; -fx-font-weight: bold; -fx-line-spacing: 2px;");
+        messageLabel.setWrapText(true);
+        messageLabel.setMaxWidth(750);
+        
+        // Action buttons row
+        HBox actionsRow = new HBox(10);
+        actionsRow.setAlignment(Pos.CENTER_LEFT);
+        
+        // Toggle read status button
+        Button toggleReadButton = new Button(notification.isRead() ? "Mark Unread" : "Mark Read");
+        toggleReadButton.setStyle("-fx-background-color: #666; -fx-text-fill: white; -fx-font-size: 11px; -fx-padding: 5 10; -fx-background-radius: 15px;");
+        toggleReadButton.setOnMouseEntered(_ -> toggleReadButton.setStyle("-fx-background-color: #777; -fx-text-fill: white; -fx-font-size: 11px; -fx-padding: 5 10; -fx-background-radius: 15px;"));
+        toggleReadButton.setOnMouseExited(_ -> toggleReadButton.setStyle("-fx-background-color: #666; -fx-text-fill: white; -fx-font-size: 11px; -fx-padding: 5 10; -fx-background-radius: 15px;"));
+        toggleReadButton.setOnAction(_ -> {
+            try {
+                if (notification.isRead()) {
+                    // Mark as unread (would need a new database method)
+                    DialogFactory.showInfo("Info", "Mark as unread functionality would be implemented here");
+                } else {
+                    DatabaseManager.markNotificationAsRead(notification.getId());
+                    DialogFactory.showInfo("Success", "Notification marked as read!");
+                    handleShowNotifications(); // Refresh the view
+                }
+            } catch (SQLException ex) {
+                DialogFactory.showError("Error updating notification: " + ex.getMessage());
+            }
+        });
+        
+        actionsRow.getChildren().add(toggleReadButton);
+        
+        // Action URL button (if applicable)
+        if (notification.getActionUrl() != null && !notification.getActionUrl().isEmpty()) {
+            Button actionButton = new Button("🔗 View Details");
+            actionButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12; -fx-background-radius: 15px;");
+            actionButton.setOnMouseEntered(_ -> actionButton.setStyle("-fx-background-color: #1976D2; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12; -fx-background-radius: 15px;"));
+            actionButton.setOnMouseExited(_ -> actionButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12; -fx-background-radius: 15px;"));
+            actionButton.setOnAction(_ -> {
+                try {
+                    // Mark as read when clicking action
+                    if (!notification.isRead()) {
+                        DatabaseManager.markNotificationAsRead(notification.getId());
+                    }
+                    getAppHostServices().showDocument(notification.getActionUrl());
+                } catch (SQLException ex) {
+                    DialogFactory.showError("Error marking notification as read: " + ex.getMessage());
+                }
+            });
+            actionsRow.getChildren().add(actionButton);
+        }
+        
+        card.getChildren().addAll(headerRow, messageLabel, actionsRow);
+        
+        // Add hover effect
+        card.setOnMouseEntered(_ -> {
+            String hoverStyle = notification.isRead() 
+                ? "-fx-background-color: #4a4a4a; -fx-background-radius: 12px; -fx-border-color: #777; -fx-border-radius: 12px; -fx-border-width: 1px;"
+                : "-fx-background-color: #555; -fx-background-radius: 12px; -fx-border-color: #76ff76; -fx-border-radius: 12px; -fx-border-width: 2px; -fx-effect: dropshadow(gaussian, rgba(118,255,118,0.4), 10, 0, 0, 0);";
+            card.setStyle(hoverStyle);
+        });
+        
+        card.setOnMouseExited(_ -> card.setStyle(cardStyle));
+        
+        return card;
+    }
+    
+    // Helper method to get notification type icon based on content
+    private static String getNotificationTypeIcon(String message) {
+        String lowercaseMessage = message.toLowerCase();
+        if (lowercaseMessage.contains("job") || lowercaseMessage.contains("position") || lowercaseMessage.contains("opportunity")) {
+            return "💼";
+        } else if (lowercaseMessage.contains("berry") || lowercaseMessage.contains("berries")) {
+            return "🫐";
+        } else if (lowercaseMessage.contains("proposal") || lowercaseMessage.contains("vote")) {
+            return "🗳️";
+        } else if (lowercaseMessage.contains("level") || lowercaseMessage.contains("promoted")) {
+            return "⭐";
+        } else if (lowercaseMessage.contains("need") || lowercaseMessage.contains("requirement")) {
+            return "❗";
+        } else if (lowercaseMessage.contains("idea") || lowercaseMessage.contains("innovation")) {
+            return "💡";
+        } else if (lowercaseMessage.contains("branch") || lowercaseMessage.contains("department")) {
+            return "🌿";
+        } else {
+            return "📢";
+        }
+    }
+    
+    // Helper method to format notification date in a user-friendly way
+    private static String formatNotificationDate(java.sql.Timestamp timestamp) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalDateTime notificationTime = timestamp.toLocalDateTime();
+        java.time.Duration duration = java.time.Duration.between(notificationTime, now);
+        
+        long minutes = duration.toMinutes();
+        long hours = duration.toHours();
+        long days = duration.toDays();
+        
+        if (minutes < 1) {
+            return "Just now";
+        } else if (minutes < 60) {
+            return minutes + " min ago";
+        } else if (hours < 24) {
+            return hours + " hour" + (hours == 1 ? "" : "s") + " ago";
+        } else if (days < 7) {
+            return days + " day" + (days == 1 ? "" : "s") + " ago";
+        } else {
+            return notificationTime.format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+        }
     }
 
     private static void handleShowBerries() {
-    try {
-        // Create a BorderPane for berries management
-        BorderPane berriesLayout = new BorderPane();
-        berriesLayout.setStyle("-fx-background-color: #2e2e2e;");
-        
-        // Create header
-        Label headerLabel = new Label("Berries Management");
-        headerLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 24px; -fx-padding: 20px;");
-        berriesLayout.setTop(headerLabel);
-        
-        // Create main content area
-        VBox contentPane = new VBox(15);
-        contentPane.setPadding(new Insets(20));
-        contentPane.setAlignment(Pos.CENTER);
-        
-        // Get current user's information
-        User currentUser = SessionManager.getCurrentUser();
-        String username = currentUser.getUsername();
-        
-        // Display user's berry information
-        VBox berryInfoBox = new VBox(10);
-        berryInfoBox.setAlignment(Pos.CENTER);
-        berryInfoBox.setPadding(new Insets(20));
-        berryInfoBox.setMaxWidth(500);
-        berryInfoBox.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 5px;");
-        
-        // Get user's total berries
-        int totalBerries = BerryService.getUserTotalBerries(username);
-        
-        // Add information labels
-        Label totalBerriesLabel = new Label("Your Total Berries: " + totalBerries);
-        totalBerriesLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 18px;");
-        
-        Label totalEarnedLabel = new Label("Total Berries Earned: " + currentUser.getTotalBerriesEarned());
-        totalEarnedLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 16px;");
-        
-        Label monthlyRateLabel = new Label("Monthly Earning Rate: " + 
-                SystemParameters.calculateMonthlyBerryEarning(currentUser.getLevel()) + " berries");
-        monthlyRateLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 16px;");
-        
-        Label validityLabel = new Label("Berry Validity Period: " + 
-                SystemParameters.getBerryValidityTime() + " months");
-        validityLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 16px;");
-        
-        berryInfoBox.getChildren().addAll(
-            totalBerriesLabel, 
-            totalEarnedLabel, 
-            monthlyRateLabel,
-            validityLabel
-        );
-        
-        // Display list of user's berries if available
-        ListView<Berry> berriesListView = new ListView<>();
-        berriesListView.setMaxHeight(300);
-        berriesListView.setStyle("-fx-background-color: #3e3e3e; -fx-control-inner-background: #3e3e3e;");
-        
-        // Populate berry list
-        List<Berry> userBerryList = userBerries.getOrDefault(username, new ArrayList<>());
-        if (userBerryList != null && !userBerryList.isEmpty()) {
-            for (Berry berry : userBerryList) {
-                berriesListView.getItems().add(berry);
-            }
+        try {
+            // Create main content container
+            VBox content = new VBox(20);
+            content.setPadding(new Insets(30));
+            content.setStyle("-fx-background-color: #2e2e2e;");
+
+            // Load user berries from database
+            List<Berry> berries = DatabaseManager.getUserBerries(SessionManager.getCurrentUser().getUsername());
             
-            // Custom cell factory for displaying berries
-            berriesListView.setCellFactory(_ -> new ListCell<Berry>() {
-                @Override
-                protected void updateItem(Berry berry, boolean empty) {
-                    super.updateItem(berry, empty);
-                    if (empty || berry == null) {
-                        setText(null);
-                    } else {
-                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                        setText(berry.getAmount() + " berries - Source: " + berry.getSource() + 
-                              " (Expires: " + berry.getExpirationDate().format(formatter) + ")");
-                        setStyle("-fx-text-fill: #d9d9d9;");
-                    }
+            // Update in-memory map with database berries to ensure correct total calculation
+            userBerries.put(SessionManager.getCurrentUser().getUsername(), berries);
+            
+            // Calculate statistics
+            int totalBerries = BerryService.getUserTotalBerries(SessionManager.getCurrentUser().getUsername());
+            long expiringBerries = berries.stream()
+                .filter(berry -> !berry.isExpired() && berry.getExpirationDate() != null)
+                .filter(berry -> java.time.Duration.between(java.time.LocalDateTime.now(), berry.getExpirationDate()).toDays() <= 7)
+                .mapToInt(Berry::getAmount)
+                .sum();
+            int projectedMonthlyEarning = SystemParameters.calculateMonthlyBerryEarning(SessionManager.getCurrentUser().getLevel());
+
+            // Create header section
+            VBox headerSection = new VBox(10);
+            headerSection.setPadding(new Insets(25));
+            headerSection.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px; -fx-padding: 18px; -fx-border-color: #555; -fx-border-radius: 10px;");
+            
+            Label titleLabel = new Label("🫐 Berries Management");
+            titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 24px; -fx-font-weight: bold;");
+            
+            Label subtitleLabel = new Label("Manage your berry collection and track earnings");
+            subtitleLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic.");
+
+            // Stats bar
+            HBox statsBar = new HBox(30);
+            statsBar.setAlignment(Pos.CENTER_LEFT);
+            statsBar.setPadding(new Insets(15));
+            statsBar.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px;");
+            
+            Label totalBerriesLabel = new Label(String.format("🫐 Total Berries: %d", totalBerries));
+            totalBerriesLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #76ff76;");
+
+            Label expiringLabel = new Label(String.format("⏰ Expiring Soon: %d", expiringBerries));
+            expiringLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #ffd700;");
+
+            Label projectedLabel = new Label(String.format("📈 Monthly Projected: %d", projectedMonthlyEarning));
+            projectedLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #87ceeb;");
+
+            statsBar.getChildren().addAll(totalBerriesLabel, expiringLabel, projectedLabel);
+
+            headerSection.getChildren().addAll(titleLabel, subtitleLabel, statsBar);
+            content.getChildren().add(headerSection);
+
+            // Create ScrollPane for berries list
+            ScrollPane scrollPane = new ScrollPane();
+            VBox berriesList = new VBox(10);
+            berriesList.setPadding(new Insets(10));
+
+            if (berries.isEmpty()) {
+                Label noBerries = new Label("🍃 No berries found. Start earning berries by participating in the Trust System!");
+                noBerries.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 16px; -fx-font-style: italic;");
+                noBerries.setAlignment(Pos.CENTER);
+                berriesList.getChildren().add(noBerries);
+            } else {
+                for (Berry berry : berries) {
+                    VBox berryCard = createBerryCard(berry);
+                    berriesList.getChildren().add(berryCard);
                 }
-            });
-            
-            Label berriesListLabel = new Label("Your Active Berries:");
-            berriesListLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 16px; -fx-padding: 10 0 5 0;");
-            
-            contentPane.getChildren().addAll(berryInfoBox, berriesListLabel, berriesListView);
+            }
+
+            scrollPane.setContent(berriesList);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setPrefHeight(400);
+            scrollPane.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
+            content.getChildren().add(scrollPane);
+
+            // Action buttons
+            HBox actionButtons = new HBox(15);
+            actionButtons.setAlignment(Pos.CENTER);
+            actionButtons.setPadding(new Insets(10, 0, 0, 0));
+
+            Button usageReportButton = new Button("Usage Report");
+            usageReportButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;");
+            usageReportButton.setOnMouseEntered(e -> usageReportButton.setStyle("-fx-background-color: #1976D2; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;"));
+            usageReportButton.setOnMouseExited(e -> usageReportButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;"));
+            usageReportButton.setOnAction(_ -> handleBerryUsageReport());
+
+            Button refreshButton = new Button("Refresh");
+            refreshButton.setStyle("-fx-background-color: #FF9800; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;");
+            refreshButton.setOnMouseEntered(e -> refreshButton.setStyle("-fx-background-color: #F57C00; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;"));
+            refreshButton.setOnMouseExited(e -> refreshButton.setStyle("-fx-background-color: #FF9800; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;"));
+            refreshButton.setOnAction(_ -> handleShowBerries());
+
+            Button monthlyDistributionButton = new Button("🗓️ Process Monthly Distribution");
+            monthlyDistributionButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;");
+            monthlyDistributionButton.setOnMouseEntered(e -> monthlyDistributionButton.setStyle("-fx-background-color: #45a049; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;"));
+            monthlyDistributionButton.setOnMouseExited(e -> monthlyDistributionButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-padding: 10 15 10 15;"));
+            monthlyDistributionButton.setOnAction(_ -> handleMonthlyBerryDistribution());
+
+            actionButtons.getChildren().addAll(usageReportButton, refreshButton, monthlyDistributionButton);
+            content.getChildren().add(actionButtons);
+
+            // Set the content in the main layout
+            setMainContent(content, "Berries Management");
+
+        } catch (SQLException e) {
+            System.err.println("Error loading berries: " + e.getMessage());
+            DialogFactory.showError("Failed to load berries: " + e.getMessage());
+        }
+    }
+    
+    // Create a styled card for displaying berry information
+    private static VBox createBerryCard(Berry berry) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        
+        // Set style based on expiration status
+        LocalDateTime now = LocalDateTime.now();
+        String cardStyle;
+        if (berry.getExpirationDate().isBefore(now)) {
+            // Expired berry - red tint
+            cardStyle = "-fx-background-color: #4a2a2a; -fx-background-radius: 8px; -fx-border-color: #ff6b6b; -fx-border-radius: 8px; -fx-border-width: 2px;";
+        } else if (java.time.Duration.between(now, berry.getExpirationDate()).toDays() <= 7) {
+            // Expiring soon - yellow tint
+            cardStyle = "-fx-background-color: #4a2a2a; -fx-background-radius: 8px; -fx-border-color: #ffd700; -fx-border-radius: 8px; -fx-border-width: 2px;";
         } else {
-            Label noBerriesLabel = new Label("You don't have any berries at the moment.");
-            noBerriesLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 16px; -fx-padding: 20 0 0 0;");
-            
-            contentPane.getChildren().addAll(berryInfoBox, noBerriesLabel);
+            // Active berry - green tint
+            cardStyle = "-fx-background-color: #2a4a2a; -fx-background-radius: 8px; -fx-border-color: #76ff76; -fx-border-radius: 8px; -fx-border-width: 2px;";
+        }
+        card.setStyle(cardStyle);
+        
+        // Header with amount and status
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        
+        Label amountLabel = new Label("🫐 " + berry.getAmount() + " berries");
+        amountLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        // Status indicator
+        String statusText;
+        String statusColor;
+        if (berry.getExpirationDate().isBefore(now)) {
+            statusText = "EXPIRED";
+            statusColor = "#ff6b6b";
+        } else if (java.time.Duration.between(now, berry.getExpirationDate()).toDays() <= 7) {
+            statusText = "EXPIRING SOON";
+            statusColor = "#ffd700";
+        } else {
+            statusText = "ACTIVE";
+            statusColor = "#76ff76";
         }
         
-        // Create action buttons panel
-        VBox actionsPanel = new VBox(10);
-        actionsPanel.setPadding(new Insets(20));
-        actionsPanel.setStyle("-fx-background-color: #1e1e1e;");
-        actionsPanel.setPrefWidth(200);
-        actionsPanel.setAlignment(Pos.TOP_CENTER);
+        Label statusLabel = new Label(statusText);
+        statusLabel.setStyle("-fx-text-fill: " + statusColor + "; -fx-font-size: 12px; -fx-font-weight: bold; " +
+                           "-fx-background-color: " + statusColor + "22; -fx-padding: 4 8; -fx-background-radius: 12px;");
         
-        // Add admin section header if user has appropriate permissions
-        Label adminSectionLabel = new Label("Admin Functions");
-        adminSectionLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 16px; -fx-font-weight: bold;");
+        header.getChildren().addAll(amountLabel, spacer, statusLabel);
         
-        // Button for processing monthly berry distribution
-        Button distributeBerryButton = UIStyleManager.createMenuButton("Process Monthly Distribution", _ -> {
-            // Confirm process with alert dialog
-            Alert confirmDialog = new Alert(Alert.AlertType.CONFIRMATION);
-            confirmDialog.setTitle("Process Monthly Distribution");
+        // Source information
+        Label sourceLabel = new Label("Source: " + formatBerrySource(berry.getSource()));
+        sourceLabel.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 13px;");
+        
+        // Expiration information
+        Label expirationLabel = new Label("Expires: " + formatExpirationDate(berry));
+        expirationLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+        
+        card.getChildren().addAll(header, sourceLabel, expirationLabel);
+        
+        // Add hover effect
+        card.setOnMouseEntered(_ -> {
+            String hoverStyle = cardStyle.replace("-fx-background-color: #", "-fx-background-color: #");
+            if (cardStyle.contains("#4a2a2a")) {
+                hoverStyle = cardStyle.replace("#4a2a2a", "#5a3a3a");
+            } else if (cardStyle.contains("#4a4a2a")) {
+                hoverStyle = cardStyle.replace("#4a4a2a", "#5a3a3a");
+            } else {
+                hoverStyle = cardStyle.replace("#2a4a2a", "#3a5a3a");
+            }
+            card.setStyle(hoverStyle);
+        });
+        
+        card.setOnMouseExited(_ -> card.setStyle(cardStyle));
+        
+        return card;
+    }
+    
+    // Helper method to format berry source for display
+    private static String formatBerrySource(String source) {
+        return switch (source) {
+            case "monthly_distribution" -> "Monthly Distribution";
+            case "level_up" -> "Level Up Reward";
+            case "system_reward" -> "System Reward";
+            default -> source.replace("_", " ").substring(0, 1).toUpperCase() + 
+                      source.replace("_", " ").substring(1);
+        };
+    }
+    
+    // Helper method to format expiration date with appropriate messaging
+    private static String formatExpirationDate(Berry berry) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiration = berry.getExpirationDate();
+        
+        if (expiration.isBefore(now)) {
+            long daysAgo = java.time.Duration.between(expiration, now).toDays();
+            return "Expired " + daysAgo + " days ago";
+        } else {
+            long daysLeft = java.time.Duration.between(now, expiration).toDays();
+            if (daysLeft == 0) {
+                return "Expires today";
+            } else if (daysLeft == 1) {
+                return "Expires tomorrow";
+            } else if (daysLeft <= 7) {
+                return "Expires in " + daysLeft + " days";
+            } else {
+                return expiration.toLocalDate().toString();
+            }
+        }
+    }
+
+
+    
+    // Method to handle berry usage report generation
+    private static void handleBerryUsageReport() {
+        String username = SessionManager.getCurrentUser().getUsername();
+        String report = BerryService.generateBerryUsageReport(username);
+        
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Berry Usage Report");
+        dialog.setHeaderText("Berry Usage Report for " + username);
+        
+        TextArea reportArea = new TextArea(report);
+        reportArea.setEditable(false);
+        reportArea.setPrefRowCount(15);
+        reportArea.setPrefColumnCount(50);
+        reportArea.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-border-color: #555; -fx-font-family: monospace;");
+        
+        dialog.getDialogPane().setContent(reportArea);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+        dialog.getDialogPane().setPrefWidth(600);
+        dialog.getDialogPane().setPrefHeight(500);
+        
+        dialog.showAndWait();
+    }
+    
+    // Method to handle monthly berry distribution for all users
+    private static void handleMonthlyBerryDistribution() {
+        try {
+            // Show confirmation dialog first
+            Dialog<ButtonType> confirmDialog = new Dialog<>();
+            confirmDialog.setTitle("Monthly Berry Distribution");
             confirmDialog.setHeaderText("Process Monthly Berry Distribution");
-            confirmDialog.setContentText("Are you sure you want to process the monthly berry distribution for all users?");
             
-            // Apply styling
-            DialogPane dialogPane = confirmDialog.getDialogPane();
-            dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-            dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-            dialogPane.lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-            dialogPane.lookup(".content.label").setStyle("-fx-text-fill: white;");
+            VBox content = new VBox(15);
+            content.setPadding(new Insets(20));
+            content.setStyle("-fx-background-color: #2e2e2e;");
+            
+            Label warningLabel = new Label("⚠️ This will distribute berries to ALL users based on their current level.");
+            warningLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            Label infoLabel = new Label("Each user will receive berries equal to their level multiplied by the initial berry earning parameter.");
+            infoLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 12px;");
+            infoLabel.setWrapText(true);
+            
+            Label questionLabel = new Label("Are you sure you want to continue?");
+            questionLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px; -fx-font-weight: bold;");
+            
+            content.getChildren().addAll(warningLabel, infoLabel, questionLabel);
+            
+            confirmDialog.getDialogPane().setContent(content);
+            confirmDialog.getDialogPane().getButtonTypes().addAll(ButtonType.YES, ButtonType.NO);
+            confirmDialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+            
+            // Style the buttons
+            Button yesButton = (Button) confirmDialog.getDialogPane().lookupButton(ButtonType.YES);
+            Button noButton = (Button) confirmDialog.getDialogPane().lookupButton(ButtonType.NO);
+            
+            yesButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;");
+            noButton.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold;");
             
             Optional<ButtonType> result = confirmDialog.showAndWait();
-            if (result.isPresent() && result.get() == ButtonType.OK) {
-                try {
-                    // Process the monthly berry distribution
-                    processMonthlyBerryDistribution();
-                    
-                    // Refresh the view to show updated berries
-                    handleShowBerries();
-                } catch (SQLException ex) {
-                    DialogFactory.showError("Error processing monthly distribution: " + ex.getMessage());
-                }
-            }
-        });
-        
-        // Back to Dashboard button
-        Button backButton = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
-        
-        // Add buttons to actions panel
-        actionsPanel.getChildren().addAll(adminSectionLabel, distributeBerryButton, backButton);
-        
-        // Set the content in the berries layout
-        berriesLayout.setCenter(contentPane);
-        berriesLayout.setRight(actionsPanel);
-        
-        // Set the berries content in the main window
-        setMainContent(berriesLayout, "Berries Management");
-    } catch (Exception e) {
-        e.printStackTrace();
-        DialogFactory.showError("Error displaying berries view: " + e.getMessage());
-    }
-}
-
-    private static void handleShowProfile() {
-        User currentUser = SessionManager.getCurrentUser();
-        if (currentUser == null) {
-            DialogFactory.showError("No user logged in.");
-            return;
-        }
-
-        VBox profileLayout = new VBox(15);
-        profileLayout.setPadding(new Insets(20));
-        profileLayout.setStyle("-fx-background-color: #3e3e3e;");
-
-        Label titleLabel = new Label("My Profile");
-        titleLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: white; -fx-font-weight: bold;");
-        profileLayout.getChildren().add(titleLabel);
-
-        GridPane detailsGrid = new GridPane();
-        detailsGrid.setHgap(10);
-        detailsGrid.setVgap(10);
-        detailsGrid.setPadding(new Insets(10));
-
-        // Define styles for labels and values
-        String labelStyle = "-fx-text-fill: #b2b2b2; -fx-font-size: 14px;";
-        String valueStyle = "-fx-text-fill: #d9d9d9; -fx-font-size: 14px;"; // Basic value style
-
-        int rowIndex = 0;
-        // Row: Username
-        Label usernameLabel = new Label("Username:");
-        usernameLabel.setStyle(labelStyle);
-        Label usernameValue = new Label(currentUser.getUsername());
-        usernameValue.setStyle(valueStyle);
-        detailsGrid.add(usernameLabel, 0, rowIndex);
-        detailsGrid.add(usernameValue, 1, rowIndex++);
-
-        // Row: Display Name
-        Label displayNameLabel = new Label("Display Name:");
-        displayNameLabel.setStyle(labelStyle);
-        TextField displayNameField = new TextField(currentUser.getDisplayName());
-        displayNameField.setStyle("-fx-control-inner-background: #555; -fx-text-fill: white; -fx-border-color: #777;"); // Style the text field
-        detailsGrid.add(displayNameLabel, 0, rowIndex);
-        detailsGrid.add(displayNameField, 1, rowIndex++);
-
-        // Row: Level
-        Label levelLabel = new Label("Level:");
-        levelLabel.setStyle(labelStyle);
-        Label levelValue = new Label(String.valueOf(currentUser.getLevel()));
-        levelValue.setStyle(valueStyle);
-        detailsGrid.add(levelLabel, 0, rowIndex);
-        detailsGrid.add(levelValue, 1, rowIndex++);
-
-        // Row: XP (with progress bar)
-        Label xpLabel = new Label("XP:");
-        xpLabel.setStyle(labelStyle);
-        int currentXP = currentUser.getXp();
-        int xpThreshold = SystemParameters.calculateXpThreshold(currentUser.getLevel());
-        double xpProgress = (xpThreshold > 0) ? (double)currentXP / xpThreshold : 0.0;
-        ProgressBar xpProgressBar = new ProgressBar(xpProgress);
-        xpProgressBar.setMaxWidth(Double.MAX_VALUE);
-        xpProgressBar.setStyle("-fx-accent: #76ff76;"); // Green progress
-        Label xpText = new Label(currentXP + " / " + xpThreshold);
-        xpText.setStyle(valueStyle);
-        HBox xpBox = new HBox(10, xpProgressBar, xpText);
-        xpBox.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(xpProgressBar, Priority.ALWAYS);
-        detailsGrid.add(xpLabel, 0, rowIndex);
-        detailsGrid.add(xpBox, 1, rowIndex++); // Add HBox instead of simple Label
-
-        // Row: Points
-        Label pointsLabel = new Label("Points:");
-        pointsLabel.setStyle(labelStyle);
-        Label pointsValue = new Label(String.valueOf(currentUser.getPoints()));
-        pointsValue.setStyle(valueStyle);
-        detailsGrid.add(pointsLabel, 0, rowIndex);
-        detailsGrid.add(pointsValue, 1, rowIndex++);
-
-        // Row: Current Berries
-        Label berriesLabel = new Label("Current Berries:"); // Renamed label
-        berriesLabel.setStyle(labelStyle);
-        // Call BerryService to get the current total
-        int currentBerries = BerryService.getUserTotalBerries(currentUser.getUsername());
-        Label berriesValue = new Label(String.valueOf(currentBerries)); 
-        berriesValue.setStyle(valueStyle);
-        detailsGrid.add(berriesLabel, 0, rowIndex);
-        detailsGrid.add(berriesValue, 1, rowIndex++);
-
-        // --- Add Certified Expertise Section ---
-        Label expertiseTitleLabel = new Label("Certified Expertise:");
-        expertiseTitleLabel.setStyle(labelStyle); // Use the standard label style
-        detailsGrid.add(expertiseTitleLabel, 0, rowIndex);
-
-        ListView<String> expertiseListView = new ListView<>();
-        expertiseListView.setPrefHeight(100); // Adjust height as needed
-        expertiseListView.setStyle("-fx-control-inner-background: #555; -fx-text-fill: white; -fx-border-color: #777;");
-        Set<Integer> certifiedIds = currentUser.getCertifiedExpertiseIds();
-        List<String> expertiseNames = new ArrayList<>();
-        if (certifiedIds != null && !certifiedIds.isEmpty()) {
-            for (int id : certifiedIds) {
-                FieldOfExpertise foe = TrustSystem.fieldsOfExpertise.get(id);
-                if (foe != null) {
-                    expertiseNames.add(foe.getName());
-                } else {
-                    expertiseNames.add("Unknown Expertise ID: " + id);
-                }
-            }
-            Collections.sort(expertiseNames);
-        } 
-
-        if (expertiseNames.isEmpty()) {
-            expertiseListView.getItems().add("None");
-            expertiseListView.setMouseTransparent(true); // Make it non-interactive if empty
-            expertiseListView.setFocusTraversable(false);
-        } else {
-            expertiseListView.setItems(FXCollections.observableArrayList(expertiseNames));
-        }
-        detailsGrid.add(expertiseListView, 1, rowIndex++); // Add to grid, increment row index
-        // --- End Certified Expertise Section ---
-
-        profileLayout.getChildren().add(detailsGrid);
-
-        Button saveButton = UIStyleManager.createMenuButton("Save Changes", _ -> {
-            currentUser.setDisplayName(displayNameField.getText());
-            try {
-                DatabaseManager.updateUser(currentUser);
-                DialogFactory.showInfo("Success", "Profile updated.");
-                // Update welcome label if needed
-                if (mainLayout != null && mainLayout.getTop() instanceof Label) {
-                   ((Label)mainLayout.getTop()).setText("Welcome, " + currentUser.getDisplayName() + "!");
-                }
-            } catch (SQLException ex) {
-                DialogFactory.showError("Database error updating profile: " + ex.getMessage());
-            }
-        });
-        profileLayout.getChildren().add(saveButton);
-
-        setMainContent(profileLayout, "My Profile");
-    }
-    
-    /**
-     * Authenticates a user and sets up their session
-     */
-    public static User authenticateAndSetupSession(String username, String password) {
-        User user = SessionManager.authenticateUser(username, password);
-        if (user != null) {
-            SessionManager.setCurrentUser(user, username, password);
-        }
-        return user;
-    }
-    
-    /**
-     * Checks if an idea belongs to the given user
-     */
-    public static boolean isIdeaAuthor(int ideaId, String username) {
-        if (!ideas.containsKey(ideaId)) {
-            return false;
-        }
-        return ideas.get(ideaId).getAuthor().equals(username);
-    }
-    
-    /**
-     * Handles user gaining XP and checks for level-up
-     */
-    public static void processUserXpGain(User user, int xpAmount) throws SQLException {
-        if (user == null) return;
-        
-        user.addXp(xpAmount);
-        DatabaseManager.updateUser(user);
-        
-        // Check if user leveled up
-        checkForLevelUp(user);
-    }
-    
-    public static void startConsoleSystem() {
-        try {
-            // Initialize database and load data
-            DatabaseConnection.initializeDataSource();
-            DatabaseManager.loadAllData();
-            BerryService.checkAndRemoveExpiredBerries();
             
-            // Rest of console system implementation would go here
-            // (Scanner setup, menu loop, etc.)
+            if (result.isPresent() && result.get() == ButtonType.YES) {
+                // Process the monthly distribution
+                BerryService.processMonthlyBerryEarnings();
+                
+                // Refresh the berries view to show updated information
+                handleShowBerries();
+                
+                DialogFactory.showInfo("Distribution Processed", "Monthly berry distribution has been successfully processed.");
+            }
             
         } catch (SQLException e) {
-            System.out.println("Failed to load data from database: " + e.getMessage());
-            System.exit(1);
+            System.err.println("Error processing monthly berry distribution: " + e.getMessage());
+            DialogFactory.showError("Failed to process monthly berry distribution: " + e.getMessage());
         }
     }
     
-    // Process monthly berry distribution
-    public static void processMonthlyBerryDistribution() throws SQLException {
-        // First ensure we have the latest proposals
-        loadProposalsFromDatabase();
-        
-        // Update system parameters from active proposals
-        updateSystemParametersFromActiveProposals();
-        
-        // Process berry distribution for all users
-        for (User user : users.values()) {
-            // Calculate berry distribution based on user level
-            int level = user.getLevel();
-            BerryService.distributeBerriesForLevel(user, level);
+    // Helper method to find the active proposal (highest votes)
+    private static <T extends Proposal> T findActiveProposal(Map<Integer, T> proposalsMap) {
+        if (proposalsMap == null || proposalsMap.isEmpty()) {
+            return null;
         }
-        
-        DialogFactory.showInfo("Monthly Distribution Complete", 
-            "Monthly Berry distribution completed for all users.");
+
+        T activeProposal = null;
+        int maxVotes = -1;
+
+        for (T proposal : proposalsMap.values()) {
+            if (proposal.getVotes() > maxVotes) {
+                maxVotes = proposal.getVotes();
+                activeProposal = proposal;
+            } else if (proposal.getVotes() == maxVotes) {
+                if (activeProposal != null && proposal.getId() < activeProposal.getId()) {
+                    activeProposal = proposal;
+                } else if (activeProposal == null) {
+                    activeProposal = proposal;
+                }
+            }
+        }
+        return activeProposal;
     }
 
-    // --- NEW: Trace Tab Handler --- 
-    private static void handleShowTrace() {
+    public static void updateSystemParametersFromActiveProposals() {
+        LevelProposal activeLevelProposal = findActiveProposal(levelProposals);
+        if (activeLevelProposal != null) {
+            SystemParameters.setXpIncreasePercentage(activeLevelProposal.getXpIncreasePercentage());
+            SystemParameters.setXpThreshold(activeLevelProposal.getXpThreshold());
+            System.out.println("Updated Level Parameters from Proposal ID: " + activeLevelProposal.getId());
+        }
+
+        BerryEarningProposal activeBerryEarningProposal = findActiveProposal(berryEarningProposals);
+        if (activeBerryEarningProposal != null) {
+            SystemParameters.setInitialLevelOneBerryEarning(activeBerryEarningProposal.getInitialLevelOneBerryEarning());
+            System.out.println("Updated Berry Earning Parameters from Proposal ID: " + activeBerryEarningProposal.getId());
+        }
+
+        BerryValidityProposal activeBerryValidityProposal = findActiveProposal(berryValidityProposals);
+        if (activeBerryValidityProposal != null) {
+            SystemParameters.setBerryValidityTime(activeBerryValidityProposal.getValidityMonths());
+            System.out.println("Updated Berry Validity Parameters from Proposal ID: " + activeBerryValidityProposal.getId());
+        }
+
+        BerryConversionProposal activeBerryConversionProposal = findActiveProposal(berryConversionProposals);
+        if (activeBerryConversionProposal != null) {
+            SystemParameters.setConversionPercentage(activeBerryConversionProposal.getConversionPercentage());
+            SystemParameters.setConversionPeriod(activeBerryConversionProposal.getConversionPeriod());
+            System.out.println("Updated Berry Conversion Parameters from Proposal ID: " + activeBerryConversionProposal.getId());
+        }
+
+        NeedThresholdProposal activeNeedThresholdProposal = findActiveProposal(needThresholdProposals);
+        if (activeNeedThresholdProposal != null) {
+            SystemParameters.setGlobalNeedThresholdPercent(activeNeedThresholdProposal.getGlobalThresholdPercent());
+            SystemParameters.setPersonalNeedThresholdPercent(activeNeedThresholdProposal.getPersonalThresholdPercent());
+            SystemParameters.setNeedTimeLimit(activeNeedThresholdProposal.getTimeLimit());
+            System.out.println("Updated Need Threshold Parameters from Proposal ID: " + activeNeedThresholdProposal.getId());
+        }
+    }
+
+    // Helper method to create styled buttons for the Ideas UI
+    private static Button createStyledButton(String text, String baseColor) {
+        Button button = new Button(text);
+        button.setPrefWidth(150);
+        button.setPrefHeight(40);
+        
+        // Create styled appearance with the specified color
+        String buttonStyle = String.format(
+            "-fx-background-color: %s; " +
+            "-fx-text-fill: white; " +
+            "-fx-font-weight: bold; " +
+            "-fx-font-size: 12px; " +
+            "-fx-background-radius: 8px; " +
+            "-fx-border-radius: 8px; " +
+            "-fx-cursor: hand; " +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0, 0, 1);",
+            baseColor
+        );
+        
+        button.setStyle(buttonStyle);
+        
+        // Add hover effects
+        String hoverColor = lightenColor(baseColor);
+        String hoverStyle = String.format(
+            "-fx-background-color: %s; " +
+            "-fx-text-fill: white; " +
+            "-fx-font-weight: bold; " +
+            "-fx-font-size: 12px; " +
+            "-fx-background-radius: 8px; " +
+            "-fx-border-radius: 8px; " +
+            "-fx-cursor: hand; " +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 3, 0, 0, 2);",
+            hoverColor
+        );
+        
+        button.setOnMouseEntered(_ -> button.setStyle(hoverStyle));
+        button.setOnMouseExited(_ -> button.setStyle(buttonStyle));
+        
+        return button;
+    }
+    
+    // Helper method to lighten a color for hover effects
+    private static String lightenColor(String hexColor) {
+        // Simple color lightening - increase each RGB component by  20%
+        if (hexColor.startsWith("#")) {
+            try {
+                int r = Integer.parseInt(hexColor.substring(1, 3), 16);
+                int g = Integer.parseInt(hexColor.substring(3, 5), 16);
+                int b = Integer.parseInt(hexColor.substring(5, 7), 16);
+                
+                r = Math.min(255, (int)(r * 1.2));
+                g = Math.min(255, (int)(g * 1.2));
+                b = Math.min(255, (int)(b * 1.2));
+                
+                return String.format("#%02x%02x%02x", r, g, b);
+            } catch (NumberFormatException e) {
+                return hexColor; // Return original if parsing fails
+            }
+        }
+        return hexColor;
+    }
+    
+    // Helper method to create monthly berry revenue chart
+    private static LineChart<Number, Number> createMonthlyBerryRevenueChart(String username) {
+        // Create axes
+        NumberAxis xAxis = new NumberAxis();
+        NumberAxis yAxis = new NumberAxis();
+        xAxis.setLabel("Month");
+        yAxis.setLabel("Berry Revenue");
+        
+        // Create the line chart
+        LineChart<Number, Number> lineChart = new LineChart<>(xAxis, yAxis);
+        lineChart.setTitle("📈 Monthly Berry Revenue");
+        lineChart.setPrefHeight(300);
+        lineChart.setPrefWidth(400);
+        
+        // Style the chart for dark theme
+        lineChart.setStyle("-fx-background-color: #3e3e3e; -fx-border-color: #555; -fx-border-radius: 8px;");
+        lineChart.lookup(".chart-plot-background").setStyle("-fx-background-color: #2e2e2e;");
+        lineChart.setLegendVisible(false);
+        
+        // Create data series
+        XYChart.Series<Number, Number> series = new XYChart.Series<>();
+        series.setName("Berry Revenue");
+        
         try {
-            BorderPane traceLayout = new BorderPane();
-            traceLayout.setPadding(new Insets(15));
-            traceLayout.setStyle("-fx-background-color: #2e2e2e;");
-
-            Label headerLabel = new Label("Trace - Fields of Expertise Management");
-            headerLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-size: 24px; -fx-padding: 0 0 15 0;");
-            traceLayout.setTop(headerLabel);
-
-            // --- Main Content Split Pane ---
-            SplitPane mainSplit = new SplitPane();
-            mainSplit.setStyle("-fx-background-color: #2e2e2e;");
-
-            // --- Left Side: Fields of Expertise List & Actions ---
-            VBox foePanel = new VBox(10);
-            foePanel.setPadding(new Insets(10));
-            foePanel.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 5;");
-
-            Label foeListLabel = new Label("Fields of Expertise:");
-            foeListLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-weight: bold;");
-
-            ListView<FieldOfExpertise> foeListView = new ListView<>();
-            foeListView.setStyle("-fx-control-inner-background: #4e4e4e; -fx-text-fill: #d9d9d9;");
-            foeListView.setPrefHeight(300);
-            ObservableList<FieldOfExpertise> foeItems = FXCollections.observableArrayList(TrustSystem.fieldsOfExpertise.values());
-            FXCollections.sort(foeItems, Comparator.comparing(FieldOfExpertise::getName)); // Sort alphabetically
-            foeListView.setItems(foeItems);
-
-            // Details Area (simple for now)
-            TextArea foeDescriptionArea = new TextArea();
-            foeDescriptionArea.setEditable(false);
-            foeDescriptionArea.setWrapText(true);
-            foeDescriptionArea.setPrefRowCount(3);
-            foeDescriptionArea.setStyle("-fx-control-inner-background: #5e5e5e; -fx-text-fill: #d9d9d9;");
-
-            foeListView.getSelectionModel().selectedItemProperty().addListener((_, __, newVal) -> {
-                // Update description area when selection changes
-                if (newVal != null) {
-                    foeDescriptionArea.setText(newVal.getDescription() != null ? newVal.getDescription() : "");
-                } else {
-                    foeDescriptionArea.setText("");
+            // Load user berries from database
+            List<Berry> berries = DatabaseManager.getUserBerries(username);
+            
+            // Group berries by month and calculate revenue
+            Map<YearMonth, Integer> monthlyRevenue = new LinkedHashMap<>();
+            YearMonth currentMonth = YearMonth.now();
+            
+            // Initialize last 6 months with 0 revenue
+            for (int i = 5; i >= 0; i--) {
+                YearMonth month = currentMonth.minusMonths(i);
+                monthlyRevenue.put(month, 0);
+            }
+            
+            // Calculate actual revenue by month
+            for (Berry berry : berries) {
+                if (berry.getExpirationDate() != null) {
+                    // Use creation date approximation (expiration - validity period)
+                    LocalDateTime creationDate = berry.getExpirationDate().minusMonths(SystemParameters.getBerryValidityTime());
+                    YearMonth berryMonth = YearMonth.from(creationDate);
+                    
+                    // Only include berries from the last 6 months
+                    if (monthlyRevenue.containsKey(berryMonth)) {
+                        monthlyRevenue.put(berryMonth, monthlyRevenue.get(berryMonth) + berry.getAmount());
+                    }
+                }
+            }
+            
+            // Add data points to the series
+            int monthIndex = 0;
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM");
+            for (Map.Entry<YearMonth, Integer> entry : monthlyRevenue.entrySet()) {
+                series.getData().add(new XYChart.Data<>(monthIndex, entry.getValue()));
+                monthIndex++;
+            }
+            
+            // Customize x-axis labels to show month names
+            xAxis.setTickLabelFormatter(new javafx.util.StringConverter<Number>() {
+                @Override
+                public String toString(Number object) {
+                    int index = object.intValue();
+                    YearMonth month = currentMonth.minusMonths(5 - index);
+                    return month.format(formatter);
+                }
+                
+                @Override
+                public Number fromString(String string) {
+                    return 0;
                 }
             });
+            
+        } catch (SQLException e) {
+            System.err.println("Error loading berry data for chart: " + e.getMessage());
+            // Add dummy data if database fails
+            series.getData().add(new XYChart.Data<>(0, 0));
+            series.getData().add(new XYChart.Data<>(1, 0));
+        }
+        
+        lineChart.getData().add(series);
+        
+        // Style the line and points
+        lineChart.lookup(".chart-series-line").setStyle("-fx-stroke: #76ff76; -fx-stroke-width: 3px;");
+        
+        return lineChart;
+    }
 
-            // Action Buttons for FoE
-            HBox foeActionBox = new HBox(10);
-            foeActionBox.setAlignment(Pos.CENTER_LEFT);
-            Button createFoeButton = UIStyleManager.createMenuButton("Create", _ -> handleCreateFoE(foeListView));
-            Button editFoeButton = UIStyleManager.createMenuButton("Edit", _ -> handleEditFoE(foeListView.getSelectionModel().getSelectedItem(), foeListView));
-            Button deleteFoeButton = UIStyleManager.createMenuButton("Delete", _ -> handleDeleteFoE(foeListView.getSelectionModel().getSelectedItem(), foeListView));
-            foeActionBox.getChildren().addAll(createFoeButton, editFoeButton, deleteFoeButton);
+    // Show the My Profile tab with user info and statistics
+    private static void handleShowProfile() {
+        try {
+            User currentUser = SessionManager.getCurrentUser();
+            VBox content = new VBox(25);
+            content.setPadding(new Insets(30));
+            content.setStyle("-fx-background-color: #2e2e2e;");
 
-            foePanel.getChildren().addAll(foeListLabel, foeListView, foeDescriptionArea, foeActionBox);
+            // Header section
+            VBox header = new VBox(10);
+            Label title = new Label("👤 My Profile");
+            title.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 28px; -fx-font-weight: bold;");
+            Label subtitle = new Label("View your account details and statistics");
+            subtitle.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px; -fx-font-style: italic;");
+            header.getChildren().addAll(title, subtitle);
 
-            // --- Right Side: User Certification ---
-            VBox assignmentPanel = new VBox(10);
-            assignmentPanel.setPadding(new Insets(10));
-            assignmentPanel.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 5;");
+            // User info section
+            VBox userInfo = new VBox(8);
+            userInfo.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px; -fx-padding: 18px; -fx-border-color: #555; -fx-border-radius: 10px;");
+            Label nameLabel = new Label("Display Name: " + currentUser.getDisplayName());
+            nameLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; -fx-font-weight: bold;");
+            Label usernameLabel = new Label("Username: " + currentUser.getUsername());
+            usernameLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 14px;");
+            Label levelLabel = new Label("Level: " + currentUser.getLevel());
+            levelLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 14px;");
+            Label xpLabel = new Label("XP: " + currentUser.getXp() + "/" + SystemParameters.calculateXpThreshold(currentUser.getLevel()));
+            xpLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px;");
+            Label pointsLabel = new Label("Points: " + currentUser.getPoints());
+            pointsLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px;");
+            userInfo.getChildren().addAll(nameLabel, usernameLabel, levelLabel, xpLabel, pointsLabel);
 
-            // User Certification Selection
-            HBox userSelector = new HBox(10);
-            userSelector.setAlignment(Pos.CENTER_LEFT);
-            Label selectUserLabel = new Label("User:");
-            selectUserLabel.setStyle("-fx-text-fill: #d9d9d9;");
-            ComboBox<User> userComboBox = new ComboBox<>();
-            userComboBox.setPromptText("Select User");
-            userComboBox.getItems().addAll(TrustSystem.users.values());
-            userSelector.getChildren().addAll(selectUserLabel, userComboBox);
+            // Statistics section
+            VBox statsSection = new VBox(15);
+            statsSection.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px; -fx-padding: 18px; -fx-border-color: #555; -fx-border-radius: 10px;");
+            Label statsTitle = new Label("📊 Statistics");
+            statsTitle.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 18px; -fx-font-weight: bold;");
 
-            // Expertise Certified for User List
-            Label userExpertiseLabel = new Label("Certified Expertise for Selected User:");
-            userExpertiseLabel.setStyle("-fx-text-fill: #d9d9d9; -fx-font-weight: bold;");
-            ListView<FieldOfExpertise> userExpertiseListView = new ListView<>();
-            userExpertiseListView.setStyle("-fx-control-inner-background: #4e4e4e; -fx-text-fill: #d9d9d9;");
-            userExpertiseListView.setPrefHeight(150);
+            // Add the monthly berry revenue chart
+            LineChart<Number, Number> berryChart = createMonthlyBerryRevenueChart(currentUser.getUsername());
+            statsSection.getChildren().addAll(statsTitle, berryChart);
 
-            // Action Buttons for User Certification
-            HBox userActionBox = new HBox(10);
-            userActionBox.setAlignment(Pos.CENTER_LEFT);
-            Button addUserExpertiseButton = UIStyleManager.createMenuButton("Certify", _ -> handleCertifyUserExpertise(userComboBox.getValue(), userExpertiseListView));
-            Button removeUserExpertiseButton = UIStyleManager.createMenuButton("Revoke", _ -> handleRevokeUserExpertise(userComboBox.getValue(), userExpertiseListView.getSelectionModel().getSelectedItem(), userExpertiseListView));
-            userActionBox.getChildren().addAll(addUserExpertiseButton, removeUserExpertiseButton);
-
-            // Populate user expertise list when user is selected
-            userComboBox.valueProperty().addListener((_, __, newVal) -> {
-                populateUserExpertiseList(newVal, userExpertiseListView);
-            });
-
-            assignmentPanel.getChildren().addAll(
-                userSelector,
-                userExpertiseLabel,
-                userExpertiseListView,
-                userActionBox
-            );
-
-            // Add panels to split pane
-            mainSplit.getItems().addAll(foePanel, assignmentPanel);
-            mainSplit.setDividerPositions(0.5); // Adjust initial split
-
-            traceLayout.setCenter(mainSplit);
-
-            // --- Bottom: Back Button ---
-            HBox bottomBar = new HBox();
-            bottomBar.setPadding(new Insets(15, 0, 0, 0));
-            bottomBar.setAlignment(Pos.CENTER);
-            Button backButton = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
-            bottomBar.getChildren().add(backButton);
-            traceLayout.setBottom(bottomBar);
-
-            setMainContent(traceLayout, "Trace - Expertise");
-
+            content.getChildren().addAll(header, userInfo, statsSection);
+            setMainContent(content, "My Profile");
         } catch (Exception e) {
-            DialogFactory.showError("Error displaying Trace tab: " + e.getMessage());
-            e.printStackTrace();
+            DialogFactory.showError("Error loading profile: " + e.getMessage());
         }
     }
 
-    // --- NEW Loader --- 
-    private static void loadFieldsOfExpertiseFromDatabase() throws SQLException {
-        fieldsOfExpertise = DatabaseManager.loadAllFieldsOfExpertise();
-        System.out.println("Loaded " + fieldsOfExpertise.size() + " Fields of Expertise.");
+    /**
+     * Returns the JavaFX HostServices instance for opening URLs, etc.
+     */
+    public static HostServices getAppHostServices() {
+        return appHostServices;
     }
 
-    // --- Helper methods for Trace Tab --- 
+    // Elegant dialog for creating a new idea
+    private static void showElegantCreateIdeaDialog(User currentUser) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Create New Idea");
+        dialog.setHeaderText("Enter the details for your new idea:");
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
 
-    private static void refreshFoEListView(ListView<FieldOfExpertise> listView) {
-         try {
-             TrustSystem.fieldsOfExpertise = DatabaseManager.loadAllFieldsOfExpertise(); // Reload from DB
-             ObservableList<FieldOfExpertise> items = FXCollections.observableArrayList(TrustSystem.fieldsOfExpertise.values());
-             FXCollections.sort(items, Comparator.comparing(FieldOfExpertise::getName));
-             listView.setItems(items);
-         } catch (SQLException ex) {
-              DialogFactory.showError("Error reloading Fields of Expertise: " + ex.getMessage());
-         }
-    }
-
-    private static void handleCreateFoE(ListView<FieldOfExpertise> listView) {
-        Dialog<FieldOfExpertise> dialog = new Dialog<>();
-        dialog.setTitle("Create Field of Expertise");
-        dialog.setHeaderText("Enter details for the new Field of Expertise");
-        DialogPane dialogPane = dialog.getDialogPane();
-        dialogPane.getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        VBox formContent = new VBox(12);
+        formContent.setPadding(new Insets(15));
 
         TextField nameField = new TextField();
-        nameField.setPromptText("Name (Unique)");
-        TextArea descriptionArea = new TextArea();
-        descriptionArea.setPromptText("Description");
-        descriptionArea.setPrefRowCount(4);
+        nameField.setPromptText("Idea name (e.g., 'Solar-Powered Water Purifier')");
+        nameField.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
 
-        // --- Added Parent FoE ComboBox ---
-        ComboBox<FieldOfExpertise> parentComboBox = new ComboBox<>();
-        parentComboBox.setPromptText("Parent Expertise (Optional)");
-        populateParentFoEComboBox(parentComboBox, null); // Populate with all FoEs
-        // --- End Added Parent FoE ComboBox ---
+        TextArea descField = new TextArea();
+        descField.setPromptText("Describe your idea in detail...");
+        descField.setPrefRowCount(4);
+        descField.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(20, 150, 10, 10));
-        grid.add(new Label("Name:"), 0, 0); grid.add(nameField, 1, 0);
-        grid.add(new Label("Description:"), 0, 1); grid.add(descriptionArea, 1, 1);
-        grid.add(new Label("Parent:"), 0, 2); grid.add(parentComboBox, 1, 2); // Added ComboBox to grid
-        dialogPane.setContent(grid);
+        formContent.getChildren().addAll(
+            new Label("Idea Name:"),
+            nameField,
+            new Label("Description (Optional):"),
+            descField
+        );
 
-        // Style dialog
-        dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-        dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-        grid.getChildren().filtered(node -> node instanceof Label).forEach(node -> node.setStyle("-fx-text-fill: white;"));
+        dialog.getDialogPane().setContent(formContent);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
 
-        Platform.runLater(nameField::requestFocus);
-
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == ButtonType.OK) {
-                String name = nameField.getText().trim();
-                String description = descriptionArea.getText().trim();
-                FieldOfExpertise selectedParent = parentComboBox.getValue(); // Get selected parent
-                Integer parentId = (selectedParent != null) ? selectedParent.getId() : null; // Get parent ID or null
-
-                if (name.isEmpty()) {
-                    DialogFactory.showError("Name cannot be empty.");
-                    return null;
-                }
-                // Pass parentId to constructor
-                return new FieldOfExpertise(name, description, parentId);
-            }
-            return null;
-        });
-
-        Optional<FieldOfExpertise> result = dialog.showAndWait();
-        result.ifPresent(foe -> {
-            try {
-                // Pass parentId to DatabaseManager method
-                // Use correct method name createFieldOfExpertise instead of saveFieldOfExpertise
-                int id = DatabaseManager.createFieldOfExpertise(foe.getName(), foe.getDescription(), foe.getParentId());
-                if (id != -1) {
-                    foe.setId(id);
-                    refreshFoEListView(listView);
-                    DialogFactory.showInfo("Success", "Field of Expertise created.");
-                } else {
-                    DialogFactory.showError("Failed to create Field of Expertise (likely duplicate name).");
-                }
-            } catch (SQLException e) {
-                DialogFactory.showError("Database error creating FoE: " + e.getMessage());
-            }
-        });
-    }
-
-    private static void handleEditFoE(FieldOfExpertise foe, ListView<FieldOfExpertise> listView) {
-        if (foe == null) {
-            DialogFactory.showInfo("Selection Required", "Please select a Field of Expertise to edit.");
-            return;
-        }
-
-        Dialog<FieldOfExpertise> dialog = new Dialog<>();
-        dialog.setTitle("Edit Field of Expertise");
-        dialog.setHeaderText("Edit details for " + foe.getName());
-        DialogPane dialogPane = dialog.getDialogPane();
-        dialogPane.getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-
-        TextField nameField = new TextField(foe.getName());
-        TextArea descriptionArea = new TextArea(foe.getDescription());
-        descriptionArea.setPrefRowCount(4);
-
-        ComboBox<FieldOfExpertise> parentComboBox = new ComboBox<>();
-        parentComboBox.setPromptText("Parent Expertise (Optional)");
-        
-        // Find current parent for selection
-        FieldOfExpertise currentParent = null;
-        if (foe.getParentId() != null) {
-            currentParent = fieldsOfExpertise.get(foe.getParentId());
-        }
-        
-        populateParentFoEComboBox(parentComboBox, foe); // Exclude this FoE and its descendants
-        parentComboBox.setValue(currentParent);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(20, 150, 10, 10));
-        grid.add(new Label("Name:"), 0, 0); grid.add(nameField, 1, 0);
-        grid.add(new Label("Description:"), 0, 1); grid.add(descriptionArea, 1, 1);
-        grid.add(new Label("Parent:"), 0, 2); grid.add(parentComboBox, 1, 2);
-        dialogPane.setContent(grid);
-
-        // Style dialog
-        dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-        dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-        grid.getChildren().filtered(node -> node instanceof Label).forEach(node -> node.setStyle("-fx-text-fill: white;"));
-
-        Platform.runLater(nameField::requestFocus);
-
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == ButtonType.OK) {
-                String name = nameField.getText().trim();
-                String description = descriptionArea.getText().trim();
-                FieldOfExpertise selectedParent = parentComboBox.getValue();
-                Integer parentId = (selectedParent != null) ? selectedParent.getId() : null;
-
-                if (name.isEmpty()) {
-                    DialogFactory.showError("Name cannot be empty.");
-                    return null;
-                }
-
-                // Create updated FoE
-                FieldOfExpertise updatedFoE = new FieldOfExpertise(foe.getId(), name, description, parentId);
-                return updatedFoE;
-            }
-            return null;
-        });
-
-        Optional<FieldOfExpertise> result = dialog.showAndWait();
-        result.ifPresent(updatedFoE -> {
-            try {
-                DatabaseManager.updateFieldOfExpertise(updatedFoE);
-                refreshFoEListView(listView);
-                DialogFactory.showInfo("Success", "Field of Expertise updated successfully.");
-            } catch (SQLException ex) {
-                DialogFactory.showError("Error updating Field of Expertise: " + ex.getMessage());
-            }
-        });
-    }
-
-    private static void handleDeleteFoE(FieldOfExpertise foe, ListView<FieldOfExpertise> listView) {
-        if (foe == null) {
-            DialogFactory.showInfo("Selection Required", "Please select a Field of Expertise to delete.");
-            return;
-        }
-
-        // Check for children - Fix Integer comparison
-        boolean hasChildren = false;
-        for (FieldOfExpertise candidate : fieldsOfExpertise.values()) {
-            Integer candidateParentId = candidate.getParentId();
-            Integer foeId = foe.getId();
-            if (candidateParentId != null && foeId != null && candidateParentId.equals(foeId)) {
-                hasChildren = true;
-                break;
-            }
-        }
-
-        if (hasChildren) {
-            // Use a version of DialogFactory.showError that accepts multiple parameters
-            // or split it into two calls
-            DialogFactory.showError("Cannot Delete Parent");
-            DialogFactory.showInfo("Child Dependencies", 
-                "This Field of Expertise has child specializations that depend on it. " +
-                "Delete all child specializations first or reassign them to another parent.");
-            return;
-        }
-
-        // Confirm deletion
-        Alert confirmDialog = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmDialog.setTitle("Confirm Delete");
-        confirmDialog.setHeaderText("Delete Field of Expertise: " + foe.getName());
-        confirmDialog.setContentText("Are you sure? This action cannot be undone. " +
-                                     "All associations with users and phases will also be removed.");
-
-        // Style dialog
-        DialogPane dialogPane = confirmDialog.getDialogPane();
-        dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-        dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-        dialogPane.lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-        dialogPane.lookup(".content.label").setStyle("-fx-text-fill: white;");
-
-        Optional<ButtonType> result = confirmDialog.showAndWait();
+        Optional<ButtonType> result = dialog.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                // Delete from database and refresh
-                DatabaseManager.deleteFieldOfExpertise(foe.getId());
-                refreshFoEListView(listView);
-                DialogFactory.showInfo("Success", "Field of Expertise deleted successfully.");
-            } catch (SQLException ex) {
-                DialogFactory.showError("Error deleting Field of Expertise: " + ex.getMessage());
-            }
-        }
-    }
-
-    private static void populateParentFoEComboBox(ComboBox<FieldOfExpertise> comboBox, FieldOfExpertise exclude) {
-        comboBox.getItems().clear();
-        comboBox.getItems().add(null); // Null option for "no parent"
-        
-        // Add all FoEs except the one to exclude (and its descendants)
-        for (FieldOfExpertise foe : fieldsOfExpertise.values()) {
-            if (exclude == null || !isDescendantOrSelf(foe, exclude.getId())) {
-                comboBox.getItems().add(foe);
-            }
-        }
-        
-        // Set cell factory for display
-        comboBox.setCellFactory(_ -> new ListCell<FieldOfExpertise>() {
-            @Override
-            protected void updateItem(FieldOfExpertise item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setText(null);
-                } else if (item == null) {
-                    setText("(No Parent - Root Level)");
-                } else {
-                    setText(item.getName());
-                }
-            }
-        });
-        
-        // Do the same for the button cell
-        comboBox.setButtonCell(new ListCell<FieldOfExpertise>() {
-            @Override
-            protected void updateItem(FieldOfExpertise item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setText(null);
-                } else if (item == null) {
-                    setText("(No Parent - Root Level)");
-                } else {
-                    setText(item.getName());
-                }
-            }
-        });
-    }
-    
-    // Helper method to check if a FoE is descendant of another
-    private static boolean isDescendantOrSelf(FieldOfExpertise candidate, Integer ancestorId) {
-        // Fix the Integer comparison using proper null checks
-        if (ancestorId != null && candidate.getId() == ancestorId) {
-            return true;
-        }
-        
-        Integer parentId = candidate.getParentId();
-        if (parentId == null) {
-            return false;
-        }
-        
-        FieldOfExpertise parent = fieldsOfExpertise.get(parentId);
-        if (parent == null) {
-            return false;
-        }
-        
-        return isDescendantOrSelf(parent, ancestorId);
-    }
-
-    private static void populateUserExpertiseList(User user, ListView<FieldOfExpertise> listView) {
-        listView.getItems().clear();
-        
-        if (user == null) {
-            return;
-        }
-        
-        Set<Integer> certifiedIds = user.getCertifiedExpertiseIds();
-        if (certifiedIds != null && !certifiedIds.isEmpty()) {
-            List<FieldOfExpertise> userExpertises = new ArrayList<>();
-            for (Integer id : certifiedIds) {
-                FieldOfExpertise foe = fieldsOfExpertise.get(id);
-                if (foe != null) {
-                    userExpertises.add(foe);
-                }
-            }
-            
-            // Sort by name
-            userExpertises.sort(Comparator.comparing(FieldOfExpertise::getName));
-            listView.getItems().addAll(userExpertises);
-        }
-    }
-    
-    private static void handleCertifyUserExpertise(User user, ListView<FieldOfExpertise> listView) {
-        if (user == null) {
-            DialogFactory.showInfo("Selection Required", "Please select a user to certify.");
-            return;
-        }
-        
-        // Create dialog to select expertise
-        Dialog<FieldOfExpertise> dialog = new Dialog<>();
-        dialog.setTitle("Certify User Expertise");
-        dialog.setHeaderText("Select expertise to certify for " + user.getDisplayName());
-        
-        // Set button types
-        ButtonType certifyButtonType = new ButtonType("Certify", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(certifyButtonType, ButtonType.CANCEL);
-        
-        // Create expertise list view
-        ListView<FieldOfExpertise> foeSelectionView = new ListView<>();
-        foeSelectionView.setPrefHeight(300);
-        foeSelectionView.setStyle("-fx-control-inner-background: #4e4e4e;");
-        
-        // Get current user expertise IDs to exclude - final copy for lambda
-        final Set<Integer> userExpertiseIds = user.getCertifiedExpertiseIds() != null ?
-                new HashSet<>(user.getCertifiedExpertiseIds()) : new HashSet<>();
-        
-        // Add all expertise not already certified for the user
-        List<FieldOfExpertise> availableFoEs = new ArrayList<>();
-        for (FieldOfExpertise foe : fieldsOfExpertise.values()) {
-            if (!userExpertiseIds.contains(foe.getId())) {
-                availableFoEs.add(foe);
-            }
-        }
-        
-        // Sort by name
-        availableFoEs.sort(Comparator.comparing(FieldOfExpertise::getName));
-        foeSelectionView.getItems().addAll(availableFoEs);
-        
-        // Create selection dialog content
-        VBox dialogContent = new VBox(10);
-        dialogContent.setPadding(new Insets(10));
-        dialogContent.getChildren().add(foeSelectionView);
-        
-        // If no available expertise, show a message
-        if (availableFoEs.isEmpty()) {
-            Label noFoELabel = new Label("User is already certified in all expertise areas.");
-            noFoELabel.setStyle("-fx-text-fill: #d9d9d9;");
-            dialogContent.getChildren().add(noFoELabel);
-            
-            // Disable the OK button since there's nothing to select
-            dialog.getDialogPane().lookupButton(certifyButtonType).setDisable(true);
-        }
-        
-        dialog.getDialogPane().setContent(dialogContent);
-        
-        // Style dialog
-        dialog.getDialogPane().setStyle("-fx-background-color: #3e3e3e;");
-        dialog.getDialogPane().lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-        dialog.getDialogPane().lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-        
-        // Set result converter
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == certifyButtonType) {
-                return foeSelectionView.getSelectionModel().getSelectedItem();
-            }
-            return null;
-        });
-        
-        // Show dialog and process result
-        Optional<FieldOfExpertise> result = dialog.showAndWait();
-        result.ifPresent(foe -> {
-            try {
-                // Certify user for expertise in database
-                DatabaseManager.certifyUserExpertise(user.getUsername(), foe.getId());
-                
-                // Update user's certified expertise set
-                Set<Integer> updatedExpertiseIds = new HashSet<>(userExpertiseIds); // Create new set from the final copy
-                updatedExpertiseIds.add(foe.getId());
-                user.setCertifiedExpertiseIds(updatedExpertiseIds);
-                
-                // Refresh the user expertise list
-                populateUserExpertiseList(user, listView);
-                
-                DialogFactory.showInfo("Success", user.getDisplayName() + " certified in " + foe.getName());
-            } catch (SQLException ex) {
-                DialogFactory.showError("Error certifying user expertise: " + ex.getMessage());
-            }
-        });
-    }
-    
-    private static void handleRevokeUserExpertise(User user, FieldOfExpertise expertise, ListView<FieldOfExpertise> listView) {
-        if (user == null || expertise == null) {
-            DialogFactory.showInfo("Selection Required", "Please select both a user and expertise to revoke.");
-            return;
-        }
-        
-        // Confirm revocation
-        Alert confirmDialog = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmDialog.setTitle("Confirm Revoke");
-        confirmDialog.setHeaderText("Revoke " + expertise.getName() + " from " + user.getDisplayName());
-        confirmDialog.setContentText("This will revoke the user's certification in this expertise area. Continue?");
-        
-        // Style dialog
-        DialogPane dialogPane = confirmDialog.getDialogPane();
-        dialogPane.setStyle("-fx-background-color: #3e3e3e;");
-        dialogPane.lookup(".header-panel").setStyle("-fx-background-color: #3e3e3e;");
-        dialogPane.lookup(".header-panel .label").setStyle("-fx-text-fill: white;");
-        dialogPane.lookup(".content.label").setStyle("-fx-text-fill: white;");
-        
-        Optional<ButtonType> result = confirmDialog.showAndWait();
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                // Revoke user's expertise in database
-                DatabaseManager.revokeUserExpertise(user.getUsername(), expertise.getId());
-                
-                // Update user's certified expertise set
-                Set<Integer> currentUserExpertiseIds = user.getCertifiedExpertiseIds();
-                if (currentUserExpertiseIds != null) {
-                    currentUserExpertiseIds.remove(expertise.getId());
-                    user.setCertifiedExpertiseIds(currentUserExpertiseIds);
-                }
-                
-                // Refresh the user expertise list
-                populateUserExpertiseList(user, listView);
-                
-                DialogFactory.showInfo("Success", expertise.getName() + " certification revoked from " + user.getDisplayName());
-            } catch (SQLException ex) {
-                DialogFactory.showError("Error revoking user expertise: " + ex.getMessage());
-            }
-        }
-    }
-
-    // --- Implementation of handleShowJobs method ---
-    private static void handleShowJobs() {
-        User currentUser = SessionManager.getCurrentUser();
-        if (currentUser == null) {
-            DialogFactory.showError("You must be logged in to view jobs.");
-            return;
-        }
-
-        Set<Integer> userExpertiseIds = currentUser.getCertifiedExpertiseIds();
-        if (userExpertiseIds == null || userExpertiseIds.isEmpty()) {
-            DialogFactory.showInfo("No Expertise", "You have no certified expertise. Certify expertise in the Trace tab to see relevant jobs.");
-            // Show an empty view instead of just a dialog
-            BorderPane emptyLayout = new BorderPane();
-            emptyLayout.setPadding(new Insets(20));
-            emptyLayout.setStyle("-fx-background-color: #2e2e2e;");
-            Label msgLabel = new Label("You have no certified expertise. Certify expertise in the Trace tab to see relevant jobs.");
-            msgLabel.setStyle(UIStyleManager.LABEL_STYLE);
-            emptyLayout.setCenter(msgLabel);
-            Button backButton = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
-            HBox bottomBar = new HBox(backButton);
-            bottomBar.setAlignment(Pos.CENTER);
-            bottomBar.setPadding(new Insets(15));
-            emptyLayout.setBottom(bottomBar);
-            setMainContent(emptyLayout, "Jobs");
-            return;
-        }
-
-        BorderPane jobsLayout = new BorderPane();
-        jobsLayout.setPadding(new Insets(20));
-        jobsLayout.setStyle("-fx-background-color: #2e2e2e;");
-
-        Label titleLabel = new Label("Job Openings Matching Your Expertise");
-        titleLabel.setStyle("-fx-font-size: 24px; -fx-text-fill: #d9d9d9; -fx-font-weight: bold;");
-        BorderPane.setAlignment(titleLabel, Pos.CENTER);
-        jobsLayout.setTop(titleLabel);
-
-        ListView<JobOpening> jobsListView = new ListView<>();
-        jobsListView.setStyle("-fx-control-inner-background: #3e3e3e; -fx-text-fill: white; -fx-border-color: #555;");
-
-        List<JobOpening> jobOpenings = findMatchingJobOpenings(currentUser, userExpertiseIds);
-
-        if (jobOpenings.isEmpty()) {
-            jobsListView.setPlaceholder(new Label("No job openings currently match your certified expertise."));
-        } else {
-            jobsListView.setItems(FXCollections.observableArrayList(jobOpenings));
-            jobsListView.setCellFactory(_ -> new ListCell<JobOpening>() {
-                @Override
-                protected void updateItem(JobOpening item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setText(null);
-                    } else {
-                        setText("Branch: " + item.branch().getName() + 
-                                " | Phase: " + item.phase().name() + 
-                                " | Requires: " + item.requiredExpertise().getName());
-                        setStyle("-fx-text-fill: #d9d9d9;");
-                    }
-                }
-            });
-        }
-
-        jobsLayout.setCenter(jobsListView);
-
-        // --- Action Buttons ---
-        HBox bottomBar = new HBox(10);
-        bottomBar.setAlignment(Pos.CENTER_RIGHT);
-        bottomBar.setPadding(new Insets(10, 0, 0, 0));
-
-        Button applyButton = UIStyleManager.createMenuButton("Apply for Selected Job", _ -> {
-            JobOpening selectedOpening = jobsListView.getSelectionModel().getSelectedItem();
-            if (selectedOpening == null) {
-                DialogFactory.showInfo("Selection Required", "Please select a job opening to apply for.");
+            String name = nameField.getText().trim();
+            String description = descField.getText().trim();
+            if (name.isEmpty()) {
+                DialogFactory.showError("Idea name cannot be empty.");
                 return;
             }
-            handleApplyForJobOpening(currentUser, selectedOpening, jobsListView);
+            try {
+                Idea newIdea = new Idea(name, description, currentUser.getUsername());
+                int ideaId = DatabaseManager.createIdea(newIdea.getName(), newIdea.getDescription(), newIdea.getAuthor());
+                if (ideaId > 0) {
+                    DialogFactory.showInfo("Idea Created", "Your idea was created successfully!");
+                    handleShowIdeas(); // Refresh the ideas list
+                } else {
+                    DialogFactory.showError("Failed to create idea.");
+                }
+            } catch (Exception ex) {
+                DialogFactory.showError("Error creating idea: " + ex.getMessage());
+            }
+        }
+    }
+
+    // Elegant dialog for associating needs with an idea
+    private static void showElegantAssociateNeedsDialog(Idea selected, Map<Integer, Need> availableNeeds) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Associate Needs with Idea");
+        dialog.setHeaderText("Select needs to associate with this idea:");
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+
+        VBox formContent = new VBox(10);
+        formContent.setPadding(new Insets(15));
+
+        // List of checkboxes for all available needs
+        Map<Integer, CheckBox> needCheckBoxes = new HashMap<>();
+        for (Need need : availableNeeds.values()) {
+            CheckBox cb = new CheckBox(need.getName());
+            cb.setStyle("-fx-text-fill: #fff;");
+            if (selected.getAssociatedNeedIds() != null && selected.getAssociatedNeedIds().contains(need.getId())) {
+                cb.setSelected(true);
+            }
+            needCheckBoxes.put(need.getId(), cb);
+            formContent.getChildren().add(cb);
+        }
+
+        dialog.getDialogPane().setContent(formContent);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            Set<Integer> selectedNeedIds = new HashSet<>();
+            for (Map.Entry<Integer, CheckBox> entry : needCheckBoxes.entrySet()) {
+                if (entry.getValue().isSelected()) {
+                    selectedNeedIds.add(entry.getKey());
+                }
+            }
+            try {
+                DatabaseManager.updateIdeaNeeds(selected.getId(), selectedNeedIds);
+                DialogFactory.showInfo("Needs Associated", "Needs successfully associated with the idea.");
+                handleShowIdeas(); // Refresh the ideas list
+            } catch (Exception ex) {
+                DialogFactory.showError("Error associating needs: " + ex.getMessage());
+            }
+        }
+    }
+
+    // Elegant dialog to show details of an idea
+    private static void showElegantIdeaDetails(Idea selected) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Idea Details");
+        dialog.setHeaderText("Details for: " + selected.getName());
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(18));
+
+        Label nameLabel = new Label("Name: " + selected.getName());
+        nameLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        Label authorLabel = new Label("Author: " + selected.getAuthor());
+        authorLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 14px;");
+
+        Label statusLabel = new Label("Status: " + (selected.getStatus() != null ? selected.getStatus() : "Draft"));
+        statusLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 14px;");
+
+        Label votesLabel = new Label("Votes: " + selected.getVoteCount());
+        votesLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+        Label descLabel = new Label("Description:");
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 15px; -fx-font-weight: bold;");
+        TextArea descArea = new TextArea(selected.getDescription());
+        descArea.setEditable(false);
+        descArea.setWrapText(true);
+        descArea.setPrefRowCount(4);
+        descArea.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+
+        // Associated needs
+        Label needsLabel = new Label("Associated Needs:");
+        needsLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 15px; -fx-font-weight: bold;");
+        VBox needsBox = new VBox(3);
+        if (selected.getAssociatedNeedIds() != null && !selected.getAssociatedNeedIds().isEmpty()) {
+            for (Integer needId : selected.getAssociatedNeedIds()) {
+                try {
+                    Need need = DatabaseManager.getNeed(needId);
+                    if (need != null) {
+                        Label needLabel = new Label("• " + need.getName());
+                        needLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 13px;");
+                        needsBox.getChildren().add(needLabel);
+                    }
+                } catch (Exception ignored) {}
+            }
+        } else {
+            Label noneLabel = new Label("(No needs associated)");
+            noneLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 13px; font-style: italic;");
+            needsBox.getChildren().add(noneLabel);
+        }
+
+        content.getChildren().addAll(
+            nameLabel, authorLabel, statusLabel, votesLabel,
+            descLabel, descArea,
+            needsLabel, needsBox
+        );
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
+        dialog.showAndWait();
+    }
+
+    // Elegant dialog for creating a new branch or sub-branch
+    private static void showElegantCreateBranchDialog(Branch parent, Map<Integer, Idea> availableIdeas) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle(parent == null ? "Create Root Branch" : "Create Sub-branch");
+        dialog.setHeaderText(parent == null ? "Enter details for the new root branch:" : "Enter details for the new sub-branch:");
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+
+        VBox formContent = new VBox(12);
+        formContent.setPadding(new Insets(15));
+
+        TextField nameField = new TextField();
+        nameField.setPromptText("Branch name (e.g., 'Infrastructure', 'Education')");
+        nameField.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+
+        TextArea descField = new TextArea();
+        descField.setPromptText("Describe this branch...");
+        descField.setPrefRowCount(3);
+        descField.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+
+        ComboBox<Idea> ideaCombo = new ComboBox<>();
+        ideaCombo.setPromptText("Associate with an idea (optional)");
+        ideaCombo.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+        ideaCombo.getItems().add(null); // Option for no association
+        for (Idea idea : availableIdeas.values()) {
+            ideaCombo.getItems().add(idea);
+        }
+        ideaCombo.setCellFactory(_ -> new ListCell<>() {
+            @Override
+            protected void updateItem(Idea item, boolean empty) {
+                super.updateItem(item, empty);
+                setText((empty || item == null) ? "(None)" : item.getName());
+            }
+        });
+        ideaCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Idea item, boolean empty) {
+                super.updateItem(item, empty);
+                setText((empty || item == null) ? "(None)" : item.getName());
+            }
         });
 
-        Button backButton2 = UIStyleManager.createMenuButton("Back to Dashboard", _ -> showDashboard());
+        formContent.getChildren().addAll(
+            new Label("Branch Name:"),
+            nameField,
+            new Label("Description (Optional):"),
+            descField,
+            new Label("Associate with Idea (Optional):"),
+            ideaCombo
+        );
 
-        bottomBar.getChildren().addAll(applyButton, backButton2);
-        bottomBar.setStyle("-fx-background-color: #3e3e3e; -fx-padding: 10; -fx-border-color: #555; -fx-border-width: 0 0 1 0;"); 
-        jobsLayout.setBottom(bottomBar);
+        dialog.getDialogPane().setContent(formContent);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
 
-        setMainContent(jobsLayout, "Jobs");
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            String name = nameField.getText().trim();
+            String description = descField.getText().trim();
+            Idea selectedIdea = ideaCombo.getValue();
+            int ideaId = (selectedIdea != null) ? selectedIdea.getId() : 0;
+            if (name.isEmpty()) {
+                DialogFactory.showError("Branch name cannot be empty.");
+                return;
+            }
+            try {
+                Branch newBranch = new Branch();
+                newBranch.setName(name);
+                newBranch.setDescription(description);
+                newBranch.setIdeaId(ideaId);
+                newBranch.setParentId(parent == null ? 0 : parent.getId());
+                int branchId = DatabaseManager.createBranch(newBranch.getName(), newBranch.getDescription(), newBranch.getIdeaId(), newBranch.getParentId());
+                // If branchId is greater than 0, it means creation was successful
+                newBranch.setId(branchId);
+                newBranch.setCurrentPhase(Branch.Phase.GENERATION); // Default phase for new branches
+                DatabaseManager.updateBranchPhase(branchId, newBranch.getCurrentPhase());
+                // If the branch was created successfully, show a success message
+                if (branchId > 0) {
+                    DialogFactory.showInfo("Branch Created", "Branch created successfully!");
+                    handleShowBranches(); // Refresh the branches view
+                } else {
+                    DialogFactory.showError("Failed to create branch.");
+                }
+            } catch (Exception ex) {
+                DialogFactory.showError("Error creating branch: " + ex.getMessage());
+            }
+        }
     }
 
-    // Helper class to represent a job opening
-    private static class JobOpening {
-        private final Branch branch;
-        private final Branch.Phase phase;
-        private final FieldOfExpertise requiredExpertise;
-        
-        public JobOpening(Branch branch, Branch.Phase phase, FieldOfExpertise requiredExpertise) {
-            this.branch = branch;
-            this.phase = phase;
-            this.requiredExpertise = requiredExpertise;
+    // Elegant dialog for associating an idea with a branch
+    private static void showElegantAssociateIdeaDialog(Branch selected, Map<Integer, Idea> availableIdeas) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Associate Idea with Branch");
+        dialog.setHeaderText("Select an idea to associate with this branch:");
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+
+        VBox formContent = new VBox(12);
+        formContent.setPadding(new Insets(15));
+
+        ComboBox<Idea> ideaCombo = new ComboBox<>();
+        ideaCombo.setPromptText("Select an idea");
+        ideaCombo.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+        for (Idea idea : availableIdeas.values()) {
+            ideaCombo.getItems().add(idea);
         }
-        
-        public Branch branch() { return branch; }
-        public Branch.Phase phase() { return phase; }
-        public FieldOfExpertise requiredExpertise() { return requiredExpertise; }
-        
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            JobOpening that = (JobOpening) obj;
-            return Objects.equals(branch, that.branch) && 
-                   phase == that.phase && 
-                   Objects.equals(requiredExpertise, that.requiredExpertise);
+        // Pre-select current association if any
+        if (selected.getIdeaId() > 0 && availableIdeas.containsKey(selected.getIdeaId())) {
+            ideaCombo.setValue(availableIdeas.get(selected.getIdeaId()));
         }
-        
-        @Override
-        public int hashCode() {
-            return Objects.hash(branch, phase, requiredExpertise);
+        ideaCombo.setCellFactory(_ -> new ListCell<>() {
+            @Override
+            protected void updateItem(Idea item, boolean empty) {
+                super.updateItem(item, empty);
+                setText((empty || item == null) ? "(None)" : item.getName());
+            }
+        });
+        ideaCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Idea item, boolean empty) {
+                super.updateItem(item, empty);
+                setText((empty || item == null) ? "(None)" : item.getName());
+            }
+        });
+
+        formContent.getChildren().addAll(new Label("Idea:"), ideaCombo);
+
+        dialog.getDialogPane().setContent(formContent);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            Idea selectedIdea = ideaCombo.getValue();
+            int ideaId = (selectedIdea != null) ? selectedIdea.getId() : 0;
+            try {
+                selected.setIdeaId(ideaId);
+                DatabaseManager.updateBranchIdea(selected.getId(), ideaId);
+                DialogFactory.showInfo("Idea Associated", "Idea successfully associated with the branch.");
+                handleShowBranches(); // Refresh the branches view
+            } catch (Exception ex) {
+                DialogFactory.showError("Error associating idea: " + ex.getMessage());
+            }
         }
     }
 
-    // Helper method to find job openings matching user expertise
-    private static List<JobOpening> findMatchingJobOpenings(User user, Set<Integer> userExpertiseIds) {
-        List<JobOpening> openings = new ArrayList<>();
-        String username = user.getUsername();
+    // Elegant dialog to show details of a branch
+    private static void showElegantBranchDetails(Branch selected, Map<Integer, Branch> branches, Map<Integer, Idea> availableIdeas) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Branch Details");
+        dialog.setHeaderText("Details for: " + selected.getName());
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
 
-        for (Branch branch : branches.values()) {
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(18));
+
+        // Name and hierarchy
+        String hierarchyIndicator = selected.getParentId() == 0 ? "🌱" : "🌿";
+        Label nameLabel = new Label(hierarchyIndicator + " " + selected.getName());
+        nameLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        // Phase
+        Label phaseLabel = new Label("Phase: " + (selected.getCurrentPhase() != null ? selected.getCurrentPhase().toString() : "GENERATION"));
+        phaseLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 14px;");
+
+        // Description
+        Label descLabel = new Label("Description:");
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 15px; -fx-font-weight: bold;");
+        TextArea descArea = new TextArea(selected.getDescription() != null ? selected.getDescription() : "No description");
+        descArea.setEditable(false);
+        descArea.setWrapText(true);
+        descArea.setPrefRowCount(3);
+        descArea.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+
+        // Associated idea
+        String ideaText = "No idea associated";
+        if (selected.getIdeaId() > 0 && availableIdeas.containsKey(selected.getIdeaId())) {
+            ideaText = availableIdeas.get(selected.getIdeaId()).getName();
+        }
+        Label ideaLabel = new Label("Associated Idea: " + ideaText);
+        ideaLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 14px;");
+
+        // Parent branch
+        String parentText = "Root branch";
+        if (selected.getParentId() > 0 && branches.containsKey(selected.getParentId())) {
+            parentText = branches.get(selected.getParentId()).getName();
+        }
+        Label parentLabel = new Label("Parent: " + parentText);
+        parentLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 13px;");
+
+        // Children branches
+        long childrenCount = branches.values().stream().filter(b -> b.getParentId() == selected.getId()).count();
+        Label childrenLabel = new Label("Children: " + childrenCount);
+        childrenLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 13px;");
+
+        // List sub-fields (names)
+        VBox subFieldsBox = new VBox(2);
+        branches.values().stream()
+            .filter(b -> b.getParentId() == selected.getId())
+            .sorted(Comparator.comparing(Branch::getName))
+            .forEach(b -> {
+                Label sub = new Label("• " + b.getName());
+                sub.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+            });
+        if (subFieldsBox.getChildren().isEmpty()) {
+            Label none = new Label("(No sub-branches)");
+            none.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px; font-style: italic;");
+            subFieldsBox.getChildren().add(none);
+        }
+
+        content.getChildren().addAll(nameLabel, phaseLabel, descLabel, descArea, ideaLabel, parentLabel, childrenLabel, subFieldsBox);
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        UIStyleManager.enhanceDialogWithKeyboardNavigation(dialog);
+        dialog.showAndWait();
+    }
+
+    // Elegant dialog to show details of a field
+    private static void showElegantFieldDetails(FieldOfExpertise selected) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Field Details");
+        dialog.setHeaderText("Details for: " + selected.getName());
+        dialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: #3e3e3e;");
+
+        // Name and hierarchy
+        String hierarchyIndicator = selected.getParentId() == 0 ? "🎓" : "📖";
+        Label nameLabel = new Label(hierarchyIndicator + " " + selected.getName());
+        nameLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        // Description
+        Label descLabel = new Label("Description:");
+        descLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 15px; -fx-font-weight: bold;");
+        TextArea descArea = new TextArea(selected.getDescription() != null ? selected.getDescription() : "No description");
+        descArea.setEditable(false);
+        descArea.setWrapText(true);
+        descArea.setPrefRowCount(3);
+        descArea.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+
+        // Parent field
+        String parentText = "Root field";
+        if (selected.getParentId() != null && selected.getParentId() > 0) {
+            FieldOfExpertise parent = fieldsOfExpertise.get(selected.getParentId());
+            parentText = (parent != null) ? parent.getName() : ("ID: " + selected.getParentId());
+        }
+        Label parentLabel = new Label("Parent: " + parentText);
+        parentLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 13px;");
+
+        // Sub-fields
+        long childrenCount = fieldsOfExpertise.values().stream().filter(f -> f.getParentId() != null && f.getParentId().equals(selected.getId())).count();
+        Label childrenLabel = new Label("Sub-fields: " + childrenCount);
+        childrenLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 13px;");
+
+        // List sub-fields (names)
+        VBox subFieldsBox = new VBox(2);
+        fieldsOfExpertise.values().stream()
+            .filter(f -> f.getParentId() != null && f.getParentId().equals(selected.getId()))
+            .sorted(Comparator.comparing(FieldOfExpertise::getName))
+            .forEach(f -> {
+                Label sub = new Label("• " + f.getName());
+                sub.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px;");
+            });
+        if (subFieldsBox.getChildren().isEmpty()) {
+            Label none = new Label("(No sub-fields)");
+            none.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 12px; font-style: italic;");
+            subFieldsBox.getChildren().add(none);
+        }
+
+        content.getChildren().addAll(nameLabel, descLabel, descArea, parentLabel, childrenLabel, subFieldsBox);
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+    }
+
+    private static void showElegantCreateFieldDialog(FieldOfExpertise parent) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle(parent == null ? "Create New Field of Expertise" : "Create Sub-field for " + parent.getName());
+        UIStyleManager.styleDialog(dialog);
+
+        VBox dialogContent = new VBox(15); // Changed 'content' to 'dialogContent' for consistency
+        dialogContent.setPadding(new Insets(20));
+        dialogContent.setStyle("-fx-background-color: #3e3e3e;");
+
+        Label titleLabel = new Label(parent == null ? "Enter New Field Details" : "Enter Sub-field Details for: " + parent.getName());
+        titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        TextField nameField = new TextField();
+        nameField.setPromptText("Field Name (e.g., Java Programming)");
+        UIStyleManager.styleTextField(nameField);
+
+        TextArea descriptionArea = new TextArea();
+        descriptionArea.setPromptText("Detailed description of the field...");
+        descriptionArea.setWrapText(true);
+        descriptionArea.setPrefRowCount(4);
+        UIStyleManager.styleTextArea(descriptionArea);
+
+        Label parentFieldLabel = new Label("Parent Field (optional):");
+        parentFieldLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px;");
+        
+        ComboBox<FieldOfExpertise> parentFieldComboBox = new ComboBox<>();
+        UIStyleManager.applyDarkThemeComboBoxStyle(parentFieldComboBox);
+        parentFieldComboBox.setPromptText("Select Parent Field");
+
+        List<FieldOfExpertise> possibleParents = new ArrayList<>();
+        possibleParents.add(null); // Represents "None (Root Field)"
+
+        // Fix: 'selected' is not defined. For creating a new field, all existing fields are potential parents.
+        // No exclusion logic based on the (non-existent) new field's descendants is needed here.
+        Set<Integer> exclusionIds = Collections.emptySet();
+
+        for (FieldOfExpertise foe : fieldsOfExpertise.values()) {
+            // The condition '!exclusionIds.contains(foe.getId())' will always be true if exclusionIds is empty.
+            // This correctly adds all fields as possible parents.
+            if (!exclusionIds.contains(foe.getId())) {
+                possibleParents.add(foe);
+            }
+        }
+        parentFieldComboBox.setItems(FXCollections.observableArrayList(possibleParents));
+
+        parentFieldComboBox.setCellFactory(_ -> new ListCell<>() {
+            @Override
+            protected void updateItem(FieldOfExpertise item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setText(null);
+                } else if (item == null) {
+                    setText("None (Root Field)");
+                } else {
+                    setText(item.getName());
+                }
+            }
+        });
+        parentFieldComboBox.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(FieldOfExpertise item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setText(null);
+                } else if (item == null) {
+                    setText("None (Root Field)");
+                } else {
+                    setText(item.getName());
+                }
+            }
+        });
+        
+        // Fix: Initialize parentFieldComboBox based on the 'parent' parameter, not undefined 'selected'.
+        if (parent == null) {
+            parentFieldComboBox.setValue(null); // Default to "None (Root Field)"
+        } else {
+            // If creating a sub-field, pre-select the parent.
+            // Ensure 'parent' itself is a valid choice (it should be, as exclusionIds is empty).
+            parentFieldComboBox.setValue(parent);
+        }
+
+        dialogContent.getChildren().addAll(
+                titleLabel,
+                new Label("Field Name:"), nameField,
+                new Label("Description:"), descriptionArea,
+                parentFieldLabel, parentFieldComboBox
+        );
+
+        dialog.getDialogPane().setContent(dialogContent);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        UIStyleManager.styleDialogButtons(dialog);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.setText(parent == null ? "Create Field" : "Create Sub-field");
+        okButton.setOnAction(_ -> {
+            String newName = nameField.getText().trim();
+            String newDescription = descriptionArea.getText().trim();
+            FieldOfExpertise selectedParentInComboBox = parentFieldComboBox.getValue();
+
+            if (newName.isEmpty()) {
+                DialogFactory.showError("Field Name cannot be empty.");
+                return;
+            }
+
+            Integer newParentId = (selectedParentInComboBox == null) ? null : selectedParentInComboBox.getId();
             
-                // Skip if user is already a candidate or team member for this branch
-                if ((branch.getCandidates() != null && branch.getCandidates().contains(username)) || 
-                    (branch.getTeam() != null && branch.getTeam().contains(username))) {
-                    continue;
+            // Fix: Create a new FieldOfExpertise object instead of updating 'selected'.
+            // FieldOfExpertise newField = new FieldOfExpertise();
+            // newField.setName(newName);
+            // newField.setDescription(newDescription);
+            // newField.setParentId(newParentId);
+
+            try {
+                // Assuming a method like createFieldOfExpertise exists or is handled by saveFieldOfExpertise
+                // For simplicity, let's assume DatabaseManager.createFieldOfExpertise(name, description, parentId) returns new ID
+                // Or adapt to how new fields are actually persisted.
+                // If DatabaseManager.saveFieldOfExpertise handles both create and update,
+                // then newField.setId(0) or similar might be needed.
+                // Based on other create methods (e.g., createIdea, createBranch), a specific create method is likely.
+                // Let's assume a createFieldOfExpertise method:
+                int newFieldId = DatabaseManager.createFieldOfExpertise(newName, newDescription, newParentId);
+
+                if (newFieldId > 0) {
+                    DialogFactory.showSuccess("Field of Expertise '" + newName + "' created successfully!");
+                    handleShowTrace(); // Refresh the UI
+                    dialog.close(); 
+                } else {
+                    DialogFactory.showError("Failed to create field of expertise.");
                 }
+            } catch (SQLException ex) {
+                DialogFactory.showError("Database error creating field: " + ex.getMessage());
+            } catch (Exception ex) {
+                DialogFactory.showError("An unexpected error occurred: " + ex.getMessage());
+                ex.printStackTrace(); // For debugging
+            }
+        });
+        
+        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+        cancelButton.setText("✖️ Cancel");
 
-                // Check if branch has openings
-                if (branch.getTeamOpenings() <= 0) {
-                    continue;
-                }
+        dialog.showAndWait();
+    }
 
-                // Check each phase of the branch for required expertise
-                for (Branch.Phase phase : Branch.Phase.values()) {
-                    if (phase == Branch.Phase.COMPLETED) continue; // Skip completed phase
+    // Helper method to get all descendant IDs of a field, including itself.
+    private static Set<Integer> getDescendantIdsRecursive(FieldOfExpertise field, Map<Integer, FieldOfExpertise> allFields) {
+        Set<Integer> descendantIds = new HashSet<>();
+        if (field == null || field.getId() == 0) { // Ensure field and field.getId() are not null
+            return descendantIds;
+        }
 
-                    try {
-                        Set<Integer> requiredIds = DatabaseManager.getExpertiseIdsForPhase(branch.getId(), phase.name());
-                        if (requiredIds != null && !requiredIds.isEmpty()) {
-                            // First check for general openings (expertise ID -1)
-                            if (requiredIds.contains(-1)) {
-                                // General opening - everyone qualifies
-                                FieldOfExpertise generalExpertise = fieldsOfExpertise.get(-1);
-                                if (generalExpertise == null) {
-                                    generalExpertise = new FieldOfExpertise(-1, "None (General)", "No specific expertise required", null);
-                                }
-                                openings.add(new JobOpening(branch, phase, generalExpertise));
-                                continue; // Move to next phase after adding general opening
-                            }
-                            
-                            // Process specific expertise matches
-                            Set<Integer> matchingIds = new HashSet<>(userExpertiseIds);
-                            matchingIds.retainAll(requiredIds);
+        Queue<Integer> queue = new LinkedList<>();
+        queue.add(field.getId());
+        descendantIds.add(field.getId());
 
-                            // If there's a match, create a JobOpening entry for each matching expertise
-                            for (int expertiseId : matchingIds) {
-                                FieldOfExpertise foe = fieldsOfExpertise.get(expertiseId);
-                                if (foe != null) {
-                                    openings.add(new JobOpening(branch, phase, foe));
-                                }
-                            }
-                        }
-                    } catch (SQLException e) {
-                        System.err.println("Error fetching expertise for branch " + branch.getId() + " phase " + phase.name() + ": " + e.getMessage());
-                        // Optionally show an error to the user, but continue checking other branches/phases
+        while (!queue.isEmpty()) {
+            Integer currentId = queue.poll();
+            for (FieldOfExpertise potentialChild : allFields.values()) {
+                if (potentialChild.getParentId() != null && potentialChild.getParentId().equals(currentId)) {
+                    if (descendantIds.add(potentialChild.getId())) {
+                        queue.add(potentialChild.getId());
                     }
                 }
+            }
         }
-        
-        // Sort openings for consistent display (e.g., by branch name then phase)
-        openings.sort(Comparator.comparing((JobOpening jo) -> jo.branch().getName())
-                          .thenComparing(jo -> jo.phase().ordinal()));
-        return openings;
+        return descendantIds;
     }
 
-    // Helper method to handle applying for a job (becoming a candidate)
-    // This method is called when the user clicks the "Apply for Selected Job" button
-    // It uses the selected job opening to apply for the job
-    // Note: This method is similar to the one above but uses the JobOpening record
-    // instead of the Branch directly
-    private static void handleApplyForJobOpening(User user, JobOpening jobOpening, ListView<JobOpening> jobsListView) {
-        try {
-            // Apply for the job through the branch associated with the opening
-            jobOpening.branch().addCandidate(user.getUsername()); 
-            DialogFactory.showInfo("Application Submitted", "You have applied to join the team for branch: " + 
-                                  jobOpening.branch().getName());
-        } catch (SQLException e) {
-            DialogFactory.showInfo("Already Applied", e.getMessage());
-            return;
+    private static void showElegantEditFieldDialog(FieldOfExpertise selectedField) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Edit Field of Expertise: " + selectedField.getName());
+        UIStyleManager.styleDialog(dialog);
+
+        VBox dialogContent = new VBox(20);
+        dialogContent.setPadding(new Insets(30));
+        dialogContent.setStyle("-fx-background-color: #3e3e3e;");
+
+        Label titleLabel = new Label("✏️ Edit '" + selectedField.getName() + "'");
+        titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 22px; -fx-font-weight: bold;");
+
+        TextField nameField = new TextField(selectedField.getName());
+        nameField.setPromptText("Field Name");
+        UIStyleManager.styleTextField(nameField);
+
+        TextArea descriptionArea = new TextArea(selectedField.getDescription());
+        descriptionArea.setPromptText("Field Description");
+        descriptionArea.setWrapText(true);
+        descriptionArea.setPrefRowCount(4);
+        UIStyleManager.styleTextArea(descriptionArea);
+
+        Label parentFieldLabel = new Label("Parent Field (optional):");
+        parentFieldLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-size: 14px;");
+        
+        ComboBox<FieldOfExpertise> parentFieldComboBox = new ComboBox<>();
+        UIStyleManager.applyDarkThemeComboBoxStyle(parentFieldComboBox);
+        parentFieldComboBox.setPromptText("Select Parent Field");
+
+        List<FieldOfExpertise> possibleParents = new ArrayList<>();
+        possibleParents.add(null); // Represents "None (Root Field)"
+
+        Set<Integer> exclusionIds = getDescendantIdsRecursive(selectedField, fieldsOfExpertise);
+
+        for (FieldOfExpertise foe : fieldsOfExpertise.values()) {
+            if (!exclusionIds.contains(foe.getId())) {
+                possibleParents.add(foe);
+            }
         }
+        parentFieldComboBox.setItems(FXCollections.observableArrayList(possibleParents));
+
+        parentFieldComboBox.setCellFactory(_ -> new ListCell<>() {
+            @Override
+            protected void updateItem(FieldOfExpertise item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setText(null);
+                } else if (item == null) {
+                    setText("None (Root Field)");
+                } else {
+                    setText(item.getName());
+                }
+            }
+        });
+        parentFieldComboBox.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(FieldOfExpertise item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setText(null);
+                } else if (item == null) {
+                    setText("None (Root Field)");
+                } else {
+                    setText(item.getName());
+                }
+            }
+        });
+        
+        if (selectedField.getParentId() == null || selectedField.getParentId() == 0) {
+            parentFieldComboBox.setValue(null);
+        } else {
+            FieldOfExpertise currentParent = fieldsOfExpertise.get(selectedField.getParentId());
+            if (currentParent != null && !exclusionIds.contains(currentParent.getId())) {
+                parentFieldComboBox.setValue(currentParent);
+            } else {
+                 parentFieldComboBox.setValue(null); 
+            }
+        }
+
+        dialogContent.getChildren().addAll(
+                titleLabel,
+                new Label("Field Name:"), nameField,
+                new Label("Description:"), descriptionArea,
+                parentFieldLabel, parentFieldComboBox
+        );
+
+        dialog.getDialogPane().setContent(dialogContent);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        UIStyleManager.styleDialogButtons(dialog);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.setText("💾 Save Changes");
+        okButton.setOnAction(_ -> {
+            String newName = nameField.getText().trim();
+            String newDescription = descriptionArea.getText().trim();
+            FieldOfExpertise selectedParent = parentFieldComboBox.getValue();
+
+            if (newName.isEmpty()) {
+                DialogFactory.showError("Field Name cannot be empty.");
+                return;
+            }
+
+            Integer newParentId = (selectedParent == null) ? null : selectedParent.getId();
+            
+            // Update the original selectedField object
+            selectedField.setName(newName);
+            selectedField.setDescription(newDescription);
+            selectedField.setParentId(newParentId);
+
+            try {
+                DatabaseManager.updateFieldOfExpertise(selectedField);
+                DialogFactory.showSuccess("Field of Expertise '" + newName + "' updated successfully!");
+                // The handleShowTrace method will reload from DB and refresh the UI including the local map
+                handleShowTrace(); 
+                dialog.close(); 
+            } catch (SQLException e) {
+                DialogFactory.showError("Database error while updating field: " + e.getMessage());
+            } catch (Exception e) {
+                DialogFactory.showError("An unexpected error occurred: " + e.getMessage());
+                e.printStackTrace(); // For debugging
+            }
+        });
+        
+        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+        cancelButton.setText("✖️ Cancel");
+
+        dialog.showAndWait();
+    }
+
+    private static void showElegantManageUsersDialog(FieldOfExpertise selected) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Manage Users in Field");
+        dialog.setHeaderText("Manage user certifications for: " + selected.getName());
+        UIStyleManager.styleDialog(dialog);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: #2e2e2e;");
+
+        // Load users with certification in this field
+        List<User> users = DatabaseManager.getUsersByField(selected.getId());
+
+        // Users list view
+        ListView<User> usersList = new ListView<>();
+        usersList.setItems(FXCollections.observableArrayList(users));
+        usersList.setCellFactory(_ -> new ListCell<>() {
+            @Override
+            protected void updateItem(User user, boolean empty) {
+                super.updateItem(user, empty);
+                if (empty || user == null) {
+                    setGraphic(null);
+                    setText(null);
+                    setStyle("-fx-background-color: transparent;");
+                } else {
+                    setText(user.getDisplayName() + " (" + user.getUsername() + ")");
+                    setStyle("-fx-text-fill: #ffffff; -fx-font-size: 14px;");
+                }
+            }
+        });
+        usersList.setStyle("-fx-background-color: #3e3e3e; -fx-border-color: #555; -fx-border-radius: 8px;");
+        usersList.setPrefHeight(200);
+
+        // Add/Remove buttons
+        HBox buttonsBox = new HBox(10);
+        buttonsBox.setAlignment(Pos.CENTER);
+        buttonsBox.setPadding(new Insets(10, 0, 0, 0));
+        
+        Button addButton = new Button("➕ Add User");
+        addButton.setStyle("-fx-background-color: #00aa00; -fx-text-fill: white; -fx-font-weight: bold;");
+        addButton.setOnAction(_ -> {
+            Dialog<ButtonType> addDialog = new Dialog<>();
+            addDialog.setTitle("Add User to Field");
+            addDialog.setHeaderText("Enter username to add:");
+            UIStyleManager.styleDialog(addDialog);
+
+            TextField usernameField = new TextField();
+            usernameField.setPromptText("Username");
+            usernameField.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: #fff;");
+
+            addDialog.getDialogPane().setContent(usernameField);
+            addDialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+            UIStyleManager.enhanceDialogWithKeyboardNavigation(addDialog);
+
+            Optional<ButtonType> result = addDialog.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                String username = usernameField.getText().trim();
+                if (username.isEmpty()) {
+                    DialogFactory.showError("Username cannot be empty.");
+                    return;
+                }
+                try {
+                    // Check if user exists
+                    User userToAdd = DatabaseManager.getUser(username);
+                    if (userToAdd == null) {
+                        DialogFactory.showError("User not found.");
+                        return;
+                    }
+                    // Add certification
+                    DatabaseManager.addUserCertification(userToAdd.getUsername(), selected.getId());
+                    DialogFactory.showInfo("User Added", "User '" + userToAdd.getDisplayName() + "' added to the field.");
+                    // Refresh users list
+                    usersList.getItems().add(userToAdd);
+                } catch (Exception ex) {
+                    DialogFactory.showError("Error adding user: " + ex.getMessage());
+                }
+            }
+        });
+
+        Button removeButton = new Button("🗑️ Remove User");
+        removeButton.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;");
+        removeButton.setOnAction(_ -> {
+            User selectedUser = usersList.getSelectionModel().getSelectedItem();
+            if (selectedUser == null) {
+                DialogFactory.showError("Select a user to remove.");
+                return;
+            }
+            try {
+                // Remove certification
+                DatabaseManager.removeUserCertification(selectedUser.getUsername(), selected.getId());
+                DialogFactory.showInfo("User Removed", "User '" + selectedUser.getDisplayName() + "' removed from the field.");
+                // Refresh users list
+                usersList.getItems().remove(selectedUser);
+            } catch (Exception ex) {
+                DialogFactory.showError("Error removing user: " + ex.getMessage());
+            }
+        });
+
+        buttonsBox.getChildren().addAll(addButton, removeButton);
+
+        content.getChildren().addAll(usersList, buttonsBox);
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+    }
+
+    private static void showTeamOpeningsDialog(Branch selectedBranch) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Manage Team Openings for: " + selectedBranch.getName());
+        UIStyleManager.styleDialog(dialog);
+
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: #3e3e3e;");
+
+        Label titleLabel = new Label("Configure Expertise for Branch: " + selectedBranch.getName());
+        titleLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        ComboBox<Branch.Phase> phaseComboBox = new ComboBox<>();
+        phaseComboBox.setItems(FXCollections.observableArrayList(Branch.Phase.values()));
+        phaseComboBox.setPromptText("Select Phase");
+        UIStyleManager.applyDarkThemeComboBoxStyle(phaseComboBox); // Corrected method name
+
+        VBox expertiseVBox = new VBox(10);
+        expertiseVBox.setPadding(new Insets(10));
+        expertiseVBox.setStyle("-fx-border-color: #555555; -fx-border-width: 1; -fx-border-radius: 5;");
+        ScrollPane scrollPane = new ScrollPane(expertiseVBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefHeight(250);
+        // UIStyleManager.styleScrollPane(scrollPane); // Assuming this might not exist yet
+
+        Map<Integer, Integer> currentRequirements = new HashMap<>();
+
+        phaseComboBox.setOnAction(_ -> {
+                                             Branch.Phase selectedPhase = phaseComboBox.getValue();
+            if (selectedPhase == null) return;
+
+            expertiseVBox.getChildren().clear();
+            currentRequirements.clear();
+
+            try {
+                Map<Integer, Integer> loadedReqs = DatabaseManager.loadBranchExpertiseRequirements(selectedBranch.getId(), selectedPhase.name());
+                currentRequirements.putAll(loadedReqs);
+            } catch (SQLException e) {
+                DialogFactory.showError("Error loading expertise requirements: " + e.getMessage());
+            }
+
+            if (fieldsOfExpertise == null) {
+                DialogFactory.showError("Fields of Expertise not loaded.");
+                return;
+            }
+
+            fieldsOfExpertise.values().forEach(field -> {
+                HBox fieldRow = new HBox(10);
+                fieldRow.setAlignment(Pos.CENTER_LEFT);
+                Label fieldNameLabel = new Label(field.getName());
+                fieldNameLabel.setStyle("-fx-text-fill: #cccccc;");
+                fieldNameLabel.setPrefWidth(200);
+
+                Spinner<Integer> levelSpinner = new Spinner<>(0, 10, currentRequirements.getOrDefault(field.getId(), 0));
+                levelSpinner.setPrefWidth(80);
+                // UIStyleManager.styleSpinner(levelSpinner); // Assuming this might not exist yet
+
+                levelSpinner.valueProperty().addListener((_, _, newValue) -> {
+                    if (newValue > 0) {
+                        currentRequirements.put(field.getId(), newValue);
+                    } else {
+                        currentRequirements.remove(field.getId());
+                    }
+                });
+
+                fieldRow.getChildren().addAll(fieldNameLabel, levelSpinner);
+                expertiseVBox.getChildren().add(fieldRow);
+            });
+        });
+
+        content.getChildren().addAll(titleLabel, new Label("Select Phase:"), phaseComboBox, new Label("Expertise Requirements:"), scrollPane);
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        UIStyleManager.styleDialogButtons(dialog);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.setText("Save Requirements");
+        okButton.setOnAction(_ -> {
+            Branch.Phase selectedPhase = phaseComboBox.getValue();
+            if (selectedPhase == null) {
+                DialogFactory.showError("Please select a phase.");
+                return;
+            }
+
+            try {
+                DatabaseManager.saveBranchExpertiseRequirements(selectedBranch.getId(), selectedPhase.name(), currentRequirements);
+                DialogFactory.showInfo("Success", "Team expertise requirements for phase '" + selectedPhase.name() + "' saved successfully!");
+                dialog.close();
+            } catch (SQLException ex) {
+                DialogFactory.showError("Database error while saving requirements: " + ex.getMessage());
+            }
+        });
+
+        dialog.showAndWait();
+    }
+
+    /**
+     * Creates the comprehensive Fields of Expertise Manager UI
+     * @param content The main content VBox to add the manager to
+     */
+    private static void createFieldsOfExpertiseManager(VBox content) {
+        // Main container for the manager
+        VBox managerContainer = new VBox(20);
+        managerContainer.setPadding(new Insets(20));
+        managerContainer.setStyle("-fx-background-color: #3e3e3e; -fx-background-radius: 10px; -fx-border-color: #555; -fx-border-radius: 10px;");
+        
+        // Create main layout with TreeView and action panel
+        HBox mainLayout = new HBox(20);
+        
+        // Left side: TreeView for hierarchical display
+        VBox treeSection = createFieldsTreeView();
+        
+        // Right side: Action panel and details
+        VBox actionPanel = createFieldsActionPanel();
+        
+        mainLayout.getChildren().addAll(treeSection, actionPanel);
+        HBox.setHgrow(treeSection, Priority.ALWAYS);
+        
+        managerContainer.getChildren().add(mainLayout);
+        content.getChildren().add(managerContainer);
+    }
     
-        // Refresh the job list view - moved outside the try-catch since these operations don't throw SQLException
-        List<JobOpening> updatedOpenings = findMatchingJobOpenings(user, user.getCertifiedExpertiseIds());
-        jobsListView.setItems(FXCollections.observableArrayList(updatedOpenings));
-        if (updatedOpenings.isEmpty()) {
-            jobsListView.setPlaceholder(new Label("No job openings currently match your certified expertise."));
+    /**
+     * Creates the TreeView section for displaying fields hierarchically
+     * @return VBox containing the TreeView and related controls
+     */
+    private static VBox createFieldsTreeView() {
+        VBox treeSection = new VBox(10);
+        
+        Label treeLabel = new Label("🌲 Fields of Expertiese Hierarchy View");
+        treeLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        // Create TreeView for fields
+        TreeView<FieldOfExpertise> fieldsTreeView = new TreeView<>();
+        fieldsTreeView.setStyle("-fx-background-color: #2e2e2e; -fx-border-color: #555; -fx-border-radius: 5px;");
+        fieldsTreeView.setPrefHeight(400);
+        fieldsTreeView.setPrefWidth(350);
+        
+        // Build the tree structure
+        TreeItem<FieldOfExpertise> rootItem = buildFieldsTree();
+        fieldsTreeView.setRoot(rootItem);
+        fieldsTreeView.setShowRoot(false);
+        
+        // Set custom cell factory for better display
+        fieldsTreeView.setCellFactory(_ -> new TreeCell<FieldOfExpertise>() {
+            @Override
+            protected void updateItem(FieldOfExpertise field, boolean empty) {
+                super.updateItem(field, empty);
+                if (empty || field == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    String icon = field.getParentId() == null || field.getParentId() == 0 ? "🎓" : "📖";
+                    setText(icon + " " + field.getName());
+                    setStyle("-fx-text-fill: #000000; -fx-font-size: 14px;");
+                }
+            }
+        });
+        
+        // Add selection handler
+        fieldsTreeView.getSelectionModel().selectedItemProperty().addListener((_, _, newSelection) -> {
+            if (newSelection != null && newSelection.getValue() != null) {
+                selectedFieldForDetails = newSelection.getValue();
+                updateFieldDetailsPanel();
+            }
+        });
+        
+        // Store reference for refreshing
+        currentFieldsTreeView = fieldsTreeView;
+        
+        // Search functionality
+        HBox searchBox = new HBox(10);
+        searchBox.setAlignment(Pos.CENTER_LEFT);
+        
+        TextField searchField = new TextField();
+        searchField.setPromptText("🔍 Search fields...");
+        searchField.setStyle("-fx-background-color: #2e2e2e; -fx-text-fill: #ffffff; -fx-border-color: #555; -fx-border-radius: 5px;");
+        searchField.setPrefWidth(250);
+        
+        Button clearSearchBtn = createStyledButton("Clear", "#f44336");
+        clearSearchBtn.setPrefWidth(80);
+        clearSearchBtn.setPrefHeight(30);
+        
+        searchField.textProperty().addListener((_, _, newText) -> {
+            filterFieldsTree(newText);
+        });
+        
+        clearSearchBtn.setOnAction(_ -> {
+            searchField.clear();
+            filterFieldsTree("");
+        });
+        
+        searchBox.getChildren().addAll(searchField, clearSearchBtn);
+        
+        treeSection.getChildren().addAll(treeLabel, searchBox, fieldsTreeView);
+        return treeSection;
+    }
+    
+    /**
+     * Creates the action panel with buttons and field details
+     * @return VBox containing action buttons and details panel
+     */
+    private static VBox createFieldsActionPanel() {
+        VBox actionPanel = new VBox(15);
+        actionPanel.setPrefWidth(300);
+        
+        // Action buttons section
+        Label actionsLabel = new Label("🛠️ Actions");
+        actionsLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        VBox buttonContainer = new VBox(10);
+        
+        // Create Root Field button
+        Button createRootBtn = createStyledButton("➕ Create Root Field", "#4caf50");
+        createRootBtn.setPrefWidth(250);
+        createRootBtn.setOnAction(_ -> showElegantCreateFieldDialog(null));
+        
+        // Create Sub-field button
+        Button createSubBtn = createStyledButton("🌿 Create Sub-field", "#2196f3");
+        createSubBtn.setPrefWidth(250);
+        createSubBtn.setOnAction(_ -> {
+            if (selectedFieldForDetails != null) {
+                showElegantCreateFieldDialog(selectedFieldForDetails);
+            } else {
+                DialogFactory.showError("Please select a parent field first.");
+            }
+        });
+        
+        // Edit Field button
+        Button editBtn = createStyledButton("✏️ Edit Field", "#ff9800");
+        editBtn.setPrefWidth(250);
+        editBtn.setOnAction(_ -> {
+            if (selectedFieldForDetails != null) {
+                showElegantEditFieldDialog(selectedFieldForDetails);
+            } else {
+                DialogFactory.showError("Please select a field to edit.");
+            }
+        });
+        
+        // Delete Field button
+        Button deleteBtn = createStyledButton("🗑️ Delete Field", "#f44336");
+        deleteBtn.setPrefWidth(250);
+        deleteBtn.setOnAction(_ -> {
+            if (selectedFieldForDetails != null) {
+                showDeleteFieldConfirmation(selectedFieldForDetails);
+            } else {
+                DialogFactory.showError("Please select a field to delete.");
+            }
+        });
+        
+        // View Details button
+        Button detailsBtn = createStyledButton("📋 View Details", "#9c27b0");
+        detailsBtn.setPrefWidth(250);
+        detailsBtn.setOnAction(_ -> {
+            if (selectedFieldForDetails != null) {
+                showElegantFieldDetails(selectedFieldForDetails);
+            } else {
+                DialogFactory.showError("Please select a field to view details.");
+            }
+        });
+        
+        // Manage Users button
+        Button manageUsersBtn = createStyledButton("👥 Manage Users", "#607d8b");
+        manageUsersBtn.setPrefWidth(250);
+        manageUsersBtn.setOnAction(_ -> {
+            if (selectedFieldForDetails != null) {
+                showElegantManageUsersDialog(selectedFieldForDetails);
+            } else {
+                DialogFactory.showError("Please select a field to manage users.");
+            }
+        });
+        
+        // Refresh button
+        Button refreshBtn = createStyledButton("🔄 Refresh", "#795548");
+        refreshBtn.setPrefWidth(250);
+        refreshBtn.setOnAction(_ -> refreshFieldsOfExpertise());
+        
+        buttonContainer.getChildren().addAll(
+            createRootBtn, createSubBtn, editBtn, deleteBtn, detailsBtn, manageUsersBtn, refreshBtn
+        );
+        
+        // Field details section
+        Label detailsLabel = new Label("📝 Selected Field Details");
+        detailsLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        // Details display area
+        currentFieldDetailsArea = createFieldDetailsArea();
+        
+        actionPanel.getChildren().addAll(actionsLabel, buttonContainer, detailsLabel, currentFieldDetailsArea);
+        return actionPanel;
+    }
+    
+    /**
+     * Creates the field details display area
+     * @return VBox containing field details
+     */
+    private static VBox createFieldDetailsArea() {
+        VBox detailsArea = new VBox(8);
+        detailsArea.setPadding(new Insets(15));
+        detailsArea.setStyle("-fx-background-color: #2e2e2e; -fx-border-color: #555; -fx-border-radius: 5px;");
+        detailsArea.setPrefHeight(200);
+        
+        Label noSelectionLabel = new Label("Select a field to view details");
+        noSelectionLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-style: italic;");
+        detailsArea.getChildren().add(noSelectionLabel);
+        
+        return detailsArea;
+    }
+    
+    /**
+     * Builds the tree structure for fields of expertise
+     * @return Root TreeItem for the tree
+     */
+    private static TreeItem<FieldOfExpertise> buildFieldsTree() {
+        TreeItem<FieldOfExpertise> rootItem = new TreeItem<>();
+        Map<Integer, TreeItem<FieldOfExpertise>> itemMap = new HashMap<>();
+        
+        // Create tree items for all fields
+        for (FieldOfExpertise field : fieldsOfExpertise.values()) {
+            TreeItem<FieldOfExpertise> item = new TreeItem<>(field);
+            item.setExpanded(true);
+            itemMap.put(field.getId(), item);
+        }
+        
+        // Build the hierarchy
+        for (FieldOfExpertise field : fieldsOfExpertise.values()) {
+            TreeItem<FieldOfExpertise> item = itemMap.get(field.getId());
+            
+            if (field.getParentId() == null || field.getParentId() == 0) {
+                // Root field
+                rootItem.getChildren().add(item);
+            } else {
+                // Sub-field
+                TreeItem<FieldOfExpertise> parentItem = itemMap.get(field.getParentId());
+                if (parentItem != null) {
+                    parentItem.getChildren().add(item);
+                } else {
+                    // Parent not found, treat as root
+                    rootItem.getChildren().add(item);
+                }
+            }
+        }
+        
+        // Sort children by name
+        sortTreeItems(rootItem);
+        
+        return rootItem;
+    }
+    
+    /**
+     * Recursively sorts tree items by field name
+     * @param item The tree item to sort
+     */
+    private static void sortTreeItems(TreeItem<FieldOfExpertise> item) {
+        if (item.getChildren().isEmpty()) return;
+        
+        item.getChildren().sort((a, b) -> {
+            if (a.getValue() == null && b.getValue() == null) return 0;
+            if (a.getValue() == null) return -1;
+            if (b.getValue() == null) return 1;
+            return a.getValue().getName().compareToIgnoreCase(b.getValue().getName());
+        });
+        
+        for (TreeItem<FieldOfExpertise> child : item.getChildren()) {
+            sortTreeItems(child);
+        }
+    }
+    
+    /**
+     * Filters the fields tree based on search text
+     * @param searchText The text to search for
+     */
+    private static void filterFieldsTree(String searchText) {
+        if (currentFieldsTreeView == null) return;
+        
+        if (searchText == null || searchText.trim().isEmpty()) {
+            // Show all fields
+            currentFieldsTreeView.setRoot(buildFieldsTree());
+        } else {
+            // Filter fields
+            TreeItem<FieldOfExpertise> filteredRoot = buildFilteredTree(searchText.toLowerCase());
+            currentFieldsTreeView.setRoot(filteredRoot);
+        }
+        
+        currentFieldsTreeView.setShowRoot(false);
+    }
+    
+    /**
+     * Builds a filtered tree based on search text
+     * @param searchText The search text (lowercase)
+     * @return Filtered tree root
+     */
+    private static TreeItem<FieldOfExpertise> buildFilteredTree(String searchText) {
+        TreeItem<FieldOfExpertise> rootItem = new TreeItem<>();
+        
+        for (FieldOfExpertise field : fieldsOfExpertise.values()) {
+            if (field.getName().toLowerCase().contains(searchText) || 
+                (field.getDescription() != null && field.getDescription().toLowerCase().contains(searchText))) {
+                
+                TreeItem<FieldOfExpertise> item = new TreeItem<>(field);
+                item.setExpanded(true);
+                rootItem.getChildren().add(item);
+            }
+        }
+        
+        // Sort filtered results
+        rootItem.getChildren().sort((a, b) -> 
+            a.getValue().getName().compareToIgnoreCase(b.getValue().getName()));
+        
+        return rootItem;
+    }
+    
+    /**
+     * Updates the field details panel with the selected field information
+     */
+    private static void updateFieldDetailsPanel() {
+        if (currentFieldDetailsArea == null || selectedFieldForDetails == null) return;
+        
+        currentFieldDetailsArea.getChildren().clear();
+        
+        FieldOfExpertise field = selectedFieldForDetails;
+        
+        // Field name
+        Label nameLabel = new Label("📌 " + field.getName());
+        nameLabel.setStyle("-fx-text-fill: #ffd700; -fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        // Field type
+        String typeText = (field.getParentId() == null || field.getParentId() == 0) ? "Root Field" : "Sub-field";
+        Label typeLabel = new Label("Type: " + typeText);
+        typeLabel.setStyle("-fx-text-fill: #87ceeb; -fx-font-size: 12px;");
+        
+        // Parent field
+        Label parentLabel = null;
+        if (field.getParentId() != null && field.getParentId() > 0) {
+            FieldOfExpertise parent = fieldsOfExpertise.get(field.getParentId());
+            String parentName = (parent != null) ? parent.getName() : "Unknown";
+            parentLabel = new Label("Parent: " + parentName);
+            parentLabel.setStyle("-fx-text-fill: #ffab40; -fx-font-size: 12px;");
+        }
+        
+        // Sub-fields count
+        long subFieldsCount = fieldsOfExpertise.values().stream()
+            .filter(f -> f.getParentId() != null && f.getParentId().equals(field.getId()))
+            .count();
+        Label subFieldsLabel = new Label("Sub-fields: " + subFieldsCount);
+        subFieldsLabel.setStyle("-fx-text-fill: #76ff76; -fx-font-size: 12px;");
+        
+        // Users count
+        Label usersLabel = new Label("Certified Users: Loading...");
+        usersLabel.setStyle("-fx-text-fill: #ff7043; -fx-font-size: 12px;");
+        
+        // Load users count asynchronously
+        loadUserCountForField(field.getId(), usersLabel);
+        
+        // Description
+        String desc = field.getDescription();
+        if (desc != null && !desc.trim().isEmpty()) {
+            Label descHeader = new Label("Description:");
+            descHeader.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 12px; -fx-font-weight: bold;");
+            
+            Label descLabel = new Label(desc.length() > 100 ? desc.substring(0, 100) + "..." : desc);
+            descLabel.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            descLabel.setWrapText(true);
+            
+            currentFieldDetailsArea.getChildren().addAll(nameLabel, typeLabel);
+            if (parentLabel != null) currentFieldDetailsArea.getChildren().add(parentLabel);
+            currentFieldDetailsArea.getChildren().addAll(subFieldsLabel, usersLabel, descHeader, descLabel);
+        } else {
+            currentFieldDetailsArea.getChildren().addAll(nameLabel, typeLabel);
+            if (parentLabel != null) currentFieldDetailsArea.getChildren().add(parentLabel);
+            currentFieldDetailsArea.getChildren().addAll(subFieldsLabel, usersLabel);
+        }
+    }
+    
+    /**
+     * Loads the user count for a field asynchronously
+     * @param fieldId The field ID
+     * @param usersLabel The label to update
+     */
+    private static void loadUserCountForField(int fieldId, Label usersLabel) {
+        // Run in background thread to avoid blocking UI
+        new Thread(() -> {
+            try {
+                List<User> users = DatabaseManager.getUsersByField(fieldId);
+                Platform.runLater(() -> {
+                    usersLabel.setText("Certified Users: " + users.size());
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    usersLabel.setText("Certified Users: Error loading");
+                });
+            }
+        }).start();
+    }
+    
+    /**
+     * Shows confirmation dialog for deleting a field
+     * @param field The field to delete
+     */
+    private static void showDeleteFieldConfirmation(FieldOfExpertise field) {
+        // Check if field has sub-fields
+        boolean hasSubFields = fieldsOfExpertise.values().stream()
+            .anyMatch(f -> f.getParentId() != null && f.getParentId().equals(field.getId()));
+        
+        Dialog<ButtonType> confirmDialog = new Dialog<>();
+        confirmDialog.setTitle("Delete Field of Expertise");
+        confirmDialog.setHeaderText("Confirm Deletion");
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setStyle("-fx-background-color: #2e2e2e;");
+        
+        Label warningLabel = new Label("⚠️ Are you sure you want to delete this field?");
+        warningLabel.setStyle("-fx-text-fill: #ff6b6b; -fx-font-size: 14px; -fx-font-weight: bold;");
+        
+        Label fieldLabel = new Label("Field: " + field.getName());
+        fieldLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 13px;");
+        
+        if (hasSubFields) {
+            Label subFieldsWarning = new Label("⚠️ This field has sub-fields that will also be deleted!");
+            subFieldsWarning.setStyle("-fx-text-fill: #ff6b6b; -fx-font-size: 12px; -fx-font-weight: bold;");
+            content.getChildren().add(subFieldsWarning);
+        }
+        
+        Label usersWarning = new Label("⚠️ This will remove certifications for all users in this field!");
+        usersWarning.setStyle("-fx-text-fill: #ff9800; -fx-font-size: 12px;");
+        
+        content.getChildren().addAll(warningLabel, fieldLabel, usersWarning);
+        
+        confirmDialog.getDialogPane().setContent(content);
+        confirmDialog.getDialogPane().getButtonTypes().addAll(ButtonType.YES, ButtonType.NO);
+        confirmDialog.getDialogPane().setStyle("-fx-background-color: #2e2e2e;");
+        
+        // Style buttons
+        Button yesButton = (Button) confirmDialog.getDialogPane().lookupButton(ButtonType.YES);
+        Button noButton = (Button) confirmDialog.getDialogPane().lookupButton(ButtonType.NO);
+        
+        yesButton.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold;");
+        noButton.setStyle("-fx-background-color: #4caf50; -fx-text-fill: white; -fx-font-weight: bold;");
+        
+        Optional<ButtonType> result = confirmDialog.showAndWait();
+        
+        if (result.isPresent() && result.get() == ButtonType.YES) {
+            deleteFieldOfExpertise(field);
+        }
+    }
+    
+    /**
+     * Deletes a field of expertise and all its sub-fields
+     * @param field The field to delete
+     */
+    private static void deleteFieldOfExpertise(FieldOfExpertise field) {
+        try {
+            // Delete the field and all its descendants
+            DatabaseManager.deleteFieldOfExpertise(field.getId());
+            
+            DialogFactory.showSuccess("Field '" + field.getName() + "' deleted successfully!");
+            refreshFieldsOfExpertise();
+            
+        } catch (SQLException e) {
+            DialogFactory.showError("Failed to delete field: " + e.getMessage());
+        } catch (Exception e) {
+            DialogFactory.showError("An unexpected error occurred: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Refreshes the fields of expertise data and UI
+     */
+    private static void refreshFieldsOfExpertise() {
+        try {
+            // Reload from database
+            fieldsOfExpertise = DatabaseManager.loadAllFieldsOfExpertise();
+            
+            // Refresh the tree view
+            if (currentFieldsTreeView != null) {
+                currentFieldsTreeView.setRoot(buildFieldsTree());
+                currentFieldsTreeView.setShowRoot(false);
+            }
+            
+            // Clear selection and details
+            selectedFieldForDetails = null;
+            if (currentFieldDetailsArea != null) {
+                currentFieldDetailsArea.getChildren().clear();
+                Label noSelectionLabel = new Label("Select a field to view details");
+                noSelectionLabel.setStyle("-fx-text-fill: #b2b2b2; -fx-font-style: italic;");
+                currentFieldDetailsArea.getChildren().add(noSelectionLabel);
+            }
+            
+            // Refresh the entire trace tab to update statistics
+            handleShowTrace();
+            
+        } catch (SQLException e) {
+            DialogFactory.showError("Failed to refresh fields: " + e.getMessage());
         }
     }
 }

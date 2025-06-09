@@ -1,5 +1,7 @@
 package com.mycompany.trust;
 
+import java.util.Date;
+
 public class BerryValidityProposal extends Proposal {
     private int validityMonths;
 
@@ -19,6 +21,14 @@ public class BerryValidityProposal extends Proposal {
         this.validityMonths = validityMonths;
     }
 
+    /**
+     * Constructor for loading from database with creation date
+     */
+    public BerryValidityProposal(String proposer, int validityMonths, Date creationDate) {
+        super("Berry Validity Proposal", "Proposal for adjusting how long berries remain valid before expiring", proposer, creationDate);
+        this.validityMonths = validityMonths;
+    }
+
     // Getters and setters specific to BerryValidityProposal
     public int getMonths() {
         return validityMonths;
@@ -33,6 +43,11 @@ public class BerryValidityProposal extends Proposal {
         this.validityMonths = validityMonths;
     }
     
+    // Add this method for UI compatibility
+    public int getValidityDays() {
+        return validityMonths * 30;
+    }
+
     public void addVote() {
         setVotes(getVotes() + 1);
     }

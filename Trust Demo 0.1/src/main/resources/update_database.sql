@@ -62,6 +62,29 @@ CREATE TABLE IF NOT EXISTS berry_validity_proposals (
     FOREIGN KEY (proposer_username) REFERENCES users(username)
 );
 
+-- Create the berry_conversion_proposals table
+CREATE TABLE IF NOT EXISTS berry_conversion_proposals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proposer_username VARCHAR(50),
+    conversion_percentage DOUBLE NOT NULL,
+    conversion_period INT NOT NULL,
+    votes INT DEFAULT 0,
+    FOREIGN KEY (proposer_username) REFERENCES users(username)
+);
+
+-- Create the need_threshold_proposals table
+CREATE TABLE IF NOT EXISTS need_threshold_proposals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proposer_username VARCHAR(50) NOT NULL,
+    global_threshold_percent DOUBLE NOT NULL,
+    personal_threshold_percent DOUBLE NOT NULL,
+    time_limit_months INT NOT NULL,
+    branch_id INT DEFAULT -1, -- Default to -1 to indicate application to all branches
+    votes INT DEFAULT 0,
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (proposer_username) REFERENCES users(username)
+);
+
 -- Create the idea_needs table
 CREATE TABLE IF NOT EXISTS idea_needs (
     idea_id INT,
@@ -99,4 +122,51 @@ CREATE TABLE IF NOT EXISTS branch_expertise_requirements (
     PRIMARY KEY (branch_id, phase_name, expertise_id),
     FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
     FOREIGN KEY (expertise_id) REFERENCES fields_of_expertise(id) ON DELETE CASCADE
+);
+
+-- Create voting tables for berry conversion and need threshold proposals
+CREATE TABLE IF NOT EXISTS berry_conversion_proposal_votes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proposal_id INT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    UNIQUE KEY uq_berry_conversion_proposal_vote (proposal_id, username),
+    FOREIGN KEY (proposal_id) REFERENCES berry_conversion_proposals(id) ON DELETE CASCADE,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS need_threshold_proposal_votes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proposal_id INT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    UNIQUE KEY uq_need_threshold_proposal_vote (proposal_id, username),
+    FOREIGN KEY (proposal_id) REFERENCES need_threshold_proposals(id) ON DELETE CASCADE,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+);
+
+-- Also create voting tables for existing proposals if they don't exist
+CREATE TABLE IF NOT EXISTS level_proposal_votes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proposal_id INT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    UNIQUE KEY uq_level_proposal_vote (proposal_id, username),
+    FOREIGN KEY (proposal_id) REFERENCES level_proposals(id) ON DELETE CASCADE,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS berry_earning_proposal_votes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proposal_id INT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    UNIQUE KEY uq_berry_earning_proposal_vote (proposal_id, username),
+    FOREIGN KEY (proposal_id) REFERENCES berry_earning_proposals(id) ON DELETE CASCADE,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS berry_validity_proposal_votes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    proposal_id INT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    UNIQUE KEY uq_berry_validity_proposal_vote (proposal_id, username),
+    FOREIGN KEY (proposal_id) REFERENCES berry_validity_proposals(id) ON DELETE CASCADE,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );

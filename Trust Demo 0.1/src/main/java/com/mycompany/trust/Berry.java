@@ -91,13 +91,11 @@ public class Berry {
         this.id = ++Berry.idCounter;
         this.creationTime = LocalDate.now();
         this.validMonths = validMonths;
-    }
-
-    /**
+    }    /**
      * Constructor for creating a berry
      * @param username The username of the berry owner
      * @param amount The amount of berries
-     * @param source The source of the berries (e.g., "monthly_distribution", "point_conversion", "level_up")
+     * @param source The source of the berries (e.g., "monthly_distribution", "level_up")
      * @param expirationDate When the berries expire
      */
     public Berry(String username, int amount, String source, LocalDateTime expirationDate) {

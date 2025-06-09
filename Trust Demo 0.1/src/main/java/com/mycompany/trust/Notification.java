@@ -17,6 +17,8 @@ public class Notification implements Serializable {
     private Timestamp timestamp;
     private boolean isRead;
     private Integer relatedBranchId; // Optional: Link to a branch
+    private java.time.LocalDateTime date;
+    private String actionUrl;
 
     // Constructor for creating new notifications
     public Notification(String username, String message, Integer relatedBranchId) {
@@ -25,6 +27,7 @@ public class Notification implements Serializable {
         this.timestamp = Timestamp.from(Instant.now());
         this.isRead = false;
         this.relatedBranchId = relatedBranchId;
+        this.date = java.time.LocalDateTime.now();
     }
 
     // Constructor for loading from database
@@ -35,6 +38,7 @@ public class Notification implements Serializable {
         this.timestamp = timestamp;
         this.isRead = isRead;
         this.relatedBranchId = relatedBranchId;
+        this.date = timestamp.toLocalDateTime();
     }
 
     // Getters
@@ -44,9 +48,20 @@ public class Notification implements Serializable {
     public Timestamp getTimestamp() { return timestamp; }
     public boolean isRead() { return isRead; }
     public Integer getRelatedBranchId() { return relatedBranchId; }
+    /**
+     * Returns the date/time of the notification as a LocalDateTime.
+     */
+    public java.time.LocalDateTime getDate() { return date; }
+    public String getActionUrl() {
+        return actionUrl;
+    }
 
     // Setters (primarily for marking as read)
     public void setRead(boolean read) { isRead = read; }
+    public void setDate(java.time.LocalDateTime date) { this.date = date; }
+    public void setActionUrl(String actionUrl) {
+        this.actionUrl = actionUrl;
+    }
 
     @Override
     public String toString() {

@@ -279,4 +279,52 @@ public class UIStyleManager {
             }
         });
     }
+    
+    public static void styleDialogButtons(Dialog<?> dialog) {
+        DialogPane dialogPane = dialog.getDialogPane();
+        for (ButtonType buttonType : dialogPane.getButtonTypes()) {
+            Button button = (Button) dialogPane.lookupButton(buttonType);
+            if (button != null) {
+                button.setStyle(BUTTON_STYLE);
+                button.setOnMouseEntered(e -> button.setStyle(BUTTON_HOVER_STYLE));
+                button.setOnMouseExited(e -> button.setStyle(BUTTON_STYLE));
+                button.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                    if (newVal) {
+                        button.setStyle(BUTTON_FOCUSED_STYLE);
+                    } else {
+                        button.setStyle(BUTTON_STYLE);
+                    }
+                });
+            }
+        }
+    }
+    
+    public static void styleTextField(TextField textField) {
+        textField.setStyle(TEXT_FIELD_STYLE);
+    }
+    
+    public static void styleTextArea(TextArea textArea) {
+        textArea.setStyle(TEXT_AREA_STYLE);
+    }
+    
+    public static void styleDialog(Dialog<?> dialog) {
+        DialogPane dialogPane = dialog.getDialogPane();
+        dialogPane.setStyle(DIALOG_STYLE);
+    }
+    
+    /**
+     * Styles a button as a secondary action button (e.g., for proposal voting)
+     */
+    public static void styleSecondaryButton(Button button) {
+        button.setStyle("-fx-background-color: #444a6d; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-border-radius: 5px; -fx-border-color: #7a88c3; -fx-border-width: 1.5px;");
+        button.setOnMouseEntered(e -> button.setStyle("-fx-background-color: #5a5f87; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-border-radius: 5px; -fx-border-color: #a3b1e6; -fx-border-width: 2px;"));
+        button.setOnMouseExited(e -> button.setStyle("-fx-background-color: #444a6d; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-border-radius: 5px; -fx-border-color: #7a88c3; -fx-border-width: 1.5px;"));
+        button.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                button.setStyle("-fx-background-color: #5a5f87; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-border-radius: 5px; -fx-border-color: #a3b1e6; -fx-border-width: 2px;");
+            } else {
+                button.setStyle("-fx-background-color: #444a6d; -fx-text-fill: #fff; -fx-font-weight: bold; -fx-background-radius: 5px; -fx-border-radius: 5px; -fx-border-color: #7a88c3; -fx-border-width: 1.5px;");
+            }
+        });
+    }
 }

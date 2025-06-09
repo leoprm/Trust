@@ -169,6 +169,35 @@ public class DialogFactory {
         });
     }
 
+    public static void showSuccess(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Success");
+        alert.setHeaderText(null);
+        alert.setResizable(true);
+        alert.getDialogPane().setPrefWidth(500);
+        alert.getDialogPane().setPrefHeight(200);
+
+        // Create a TextArea for copyable text with green color for success
+        TextArea textArea = new TextArea(message);
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setStyle(UIStyleManager.TEXT_AREA_STYLE_DARK + "; -fx-text-fill: #4caf50;");
+
+        // Style the dialog
+        DialogPane dialogPane = alert.getDialogPane();
+        dialogPane.setStyle(UIStyleManager.DIALOG_STYLE);
+
+        VBox contentPane = new VBox(10);
+        contentPane.getChildren().addAll(
+                new Label("Success:"),
+                textArea
+        );
+        contentPane.setPadding(new Insets(10));
+        dialogPane.setContent(contentPane);
+
+        alert.showAndWait();
+    }
+
     // Custom input dialogs will use the enhanceDialogWithKeyboardNavigation method
     // from UIStyleManager to ensure all text is visible
 }

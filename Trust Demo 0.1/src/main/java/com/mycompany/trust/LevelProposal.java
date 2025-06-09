@@ -1,5 +1,7 @@
 package com.mycompany.trust;
 
+import java.util.Date;
+
 public class LevelProposal extends Proposal {
     private double xpIncreasePercentage;
     private double xpThreshold;
@@ -22,6 +24,15 @@ public class LevelProposal extends Proposal {
         this.xpThreshold = xpThreshold;
     }
 
+    /**
+     * Constructor for loading from database with creation date
+     */
+    public LevelProposal(String proposer, double xpIncreasePercentage, double xpThreshold, Date creationDate) {
+        super("Level System Proposal", "Proposal for adjusting the XP requirements for leveling up", proposer, creationDate);
+        this.xpIncreasePercentage = xpIncreasePercentage;
+        this.xpThreshold = xpThreshold;
+    }
+
     // Getters and setters specific to LevelProposal
     public double getXpIncreasePercentage() {
         return xpIncreasePercentage;
@@ -37,6 +48,14 @@ public class LevelProposal extends Proposal {
 
     public void setXpThreshold(double xpThreshold) {
         this.xpThreshold = xpThreshold;
+    }
+
+    // Add these methods for UI compatibility
+    public double getTargetLevel() {
+        return xpIncreasePercentage;
+    }
+    public double getXpRequired() {
+        return xpThreshold;
     }
 
     @Override

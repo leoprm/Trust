@@ -44,6 +44,19 @@ public class User {
         this.certifiedExpertiseIds = new HashSet<>(); // Initialize
     }
 
+    // Constructor with username, password, displayName, xp, level, points
+    public User(String username, String password, String displayName, int xp, int level, int points) {
+        this.username = username;
+        this.password = password;
+        this.displayName = displayName;
+        this.xp = xp;
+        this.level = level;
+        this.points = points;
+        this.totalBerriesEarned = 0;
+        this.berries = new ArrayList<>();
+        this.certifiedExpertiseIds = new HashSet<>();
+    }
+
     // --- Getters/Setters for Expertise ---
     public Set<Integer> getCertifiedExpertiseIds() {
          if (certifiedExpertiseIds == null) {

@@ -51,6 +51,13 @@ public class Idea {
     public void setName(String name) {
         this.name = name;
     }
+    
+    /**
+     * @return the title (alias for name)
+     */
+    public String getTitle() {
+        return getName();
+    }
 
     /**
      * @return the description

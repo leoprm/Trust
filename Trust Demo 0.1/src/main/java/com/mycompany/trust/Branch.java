@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.sql.SQLException;
@@ -231,6 +232,18 @@ public class Branch implements Serializable {
         System.out.println("New branch object created in memory: Name=\"" + this.name + "\" (ID not set yet)");
     }
     
+    public Branch(int id, String name, String description, int parentId) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.parentId = parentId;
+        this.currentPhase = Phase.GENERATION;
+        this.candidates = new ArrayList<>();
+        this.needs = new HashSet<>();
+        this.children = new HashSet<>();
+        this.phaseTeams = new HashMap<>();
+    }
+    
     public Branch(int id, String name, String description, int parentId, int ideaId, Phase currentPhase) {
         this.id = id;
         this.name = name;
@@ -273,15 +286,23 @@ public class Branch implements Serializable {
 
         if (completedPhaseEnum != Phase.GENERATION && completedPhaseEnum != Phase.COMPLETED) {
             if (!teamToReward.isEmpty()) {
-                Idea associatedIdea = getIdea();
+                Idea associatedIdea = DatabaseManager.getIdea(this.ideaId);
+                if (associatedIdea == null) {
+                    System.err.println("Error: Associated idea with ID " + this.ideaId + " not found.");
+                    return;
+                }
                 if (associatedIdea != null) {
                     Set<Integer> associatedNeedIds = associatedIdea.getAssociatedNeedIds();
                     if (associatedNeedIds != null && !associatedNeedIds.isEmpty()) {
-                        int totalNeedPoints = 0;
+                        int totalNeedPoints = 0;                        
                         for (int needId : associatedNeedIds) {
-                            Need need = TrustSystem.needs.get(needId);
-                            if (need != null) {
-                                totalNeedPoints += NeedService.calculateTotalPoints(need);
+                            try {
+                                Need need = DatabaseManager.getNeed(needId);
+                                if (need != null) {
+                                    totalNeedPoints += NeedService.calculateTotalPoints(need);
+                                }
+                            } catch (SQLException e) {
+                                System.err.println("Error loading need " + needId + ": " + e.getMessage());
                             }
                         }
                         double baseXP = (double) totalNeedPoints / associatedNeedIds.size();
@@ -291,17 +312,20 @@ public class Branch implements Serializable {
                         int finalXpPerMember = (int) Math.round(xpPerMember);
 
                         if (finalXpPerMember > 0) {
-                            System.out.println("[XP Award] Branch: " + this.id + ", Phase: " + completedPhaseEnum.name() + ", Points: " + totalNeedPoints + ", Rating: " + averageRating + "%, XP/Member: " + finalXpPerMember);
-                            for (String username : teamToReward) {
-                                User user = TrustSystem.users.get(username);
-                                if (user != null) {
-                                    try {
-                                        TrustSystem.processUserXpGain(user, finalXpPerMember);
-                                    } catch (SQLException e) {
-                                        System.err.println("Error awarding XP to " + username + ": " + e.getMessage());
+                            System.out.println("[XP Award] Branch: " + this.id + ", Phase: " + completedPhaseEnum.name() + ", Points: " + totalNeedPoints + ", Rating: " + averageRating + "%, XP/Member: " + finalXpPerMember);                            for (String username : teamToReward) {
+                                try {
+                                    User user = DatabaseManager.getUser(username);
+                                    if (user != null) {
+                                        try {
+                                            UserService.awardXpToUser(user, finalXpPerMember);
+                                        } catch (SQLException e) {
+                                            System.err.println("Error awarding XP to " + username + ": " + e.getMessage());
+                                        }
+                                    } else {
+                                         System.err.println("XP Award Error: User " + username + " not found.");
                                     }
-                                } else {
-                                     System.err.println("XP Award Error: User " + username + " not found.");
+                                } catch (SQLException e) {
+                                    System.err.println("Error loading user " + username + " for XP award: " + e.getMessage());
                                 }
                             }
                         } else {
@@ -346,11 +370,10 @@ public class Branch implements Serializable {
         if (newPhase != Phase.COMPLETED) { // No jobs needed for the completed state
             try {
                 Set<Integer> requiredExpertiseIds = DatabaseManager.getExpertiseIdsForPhase(this.id, newPhase.name());
-                System.out.println("Branch " + this.id + " entered phase " + newPhase.name() + ". Required expertise: " + requiredExpertiseIds);
-
-                if (!requiredExpertiseIds.isEmpty()) {
+                System.out.println("Branch " + this.id + " entered phase " + newPhase.name() + ". Required expertise: " + requiredExpertiseIds);                if (!requiredExpertiseIds.isEmpty()) {
                     // Iterate through all users to find matches
-                    for (User user : TrustSystem.users.values()) {
+                    List<User> allUsers = DatabaseManager.getAllUsersList();
+                    for (User user : allUsers) {
                         Set<Integer> userCertifiedIds = user.getCertifiedExpertiseIds();
                         if (userCertifiedIds == null || userCertifiedIds.isEmpty()) {
                             continue; // Skip users with no certifications
@@ -493,15 +516,17 @@ public class Branch implements Serializable {
         DatabaseManager.updateBranchTeamOpenings(this.id, this.teamOpenings);
 
         this.candidates.removeAll(selectedCandidates);
-        DatabaseManager.deleteBranchSelectedCandidates(this.id, selectedCandidates);
-
-        // Add selected candidates to the team (map and DB table)
+        DatabaseManager.deleteBranchSelectedCandidates(this.id, selectedCandidates);        // Add selected candidates to the team (map and DB table)
         for (String selectedUsername : selectedCandidates) {
-            User selectedUser = TrustSystem.users.get(selectedUsername);
-            if (selectedUser != null) {
-                addTeamMember(selectedUser);
-            } else {
-                 System.out.println("Warning: Selected candidate user " + selectedUsername + " not found in TrustSystem.");
+            try {
+                User selectedUser = DatabaseManager.getUser(selectedUsername);
+                if (selectedUser != null) {
+                    addTeamMember(selectedUser);
+                } else {
+                     System.out.println("Warning: Selected candidate user " + selectedUsername + " not found in database.");
+                }
+            } catch (SQLException e) {
+                System.err.println("Error loading user " + selectedUsername + " for team selection: " + e.getMessage());
             }
         }
          System.out.println("Team selection complete for branch " + id + ". Remaining openings: " + this.teamOpenings);
@@ -516,12 +541,6 @@ public class Branch implements Serializable {
         return children != null ? children : new HashSet<>();
     }
     
-    public Idea getIdea() {
-        if (ideaId > 0 && TrustSystem.ideas.containsKey(ideaId)) {
-            return TrustSystem.ideas.get(ideaId);
-        }
-        return null;
-    }
 
     private PhaseBase getCurrentPhaseObject() {
         return switch (this.currentPhase) {
@@ -654,5 +673,36 @@ public class Branch implements Serializable {
     public void saveExpertiseRequirements() throws SQLException {
         DatabaseManager.updateBranchExpertiseRequirements(this.id, this.currentPhase.name(), this.expertiseRequirements);
         System.out.println("Saved " + this.expertiseRequirements.size() + " expertise requirements for branch " + this.id + ", phase " + this.currentPhase);
+    }
+    
+    /**
+     * Checks if the branch is active (not in COMPLETED phase)
+     * @return true if the branch is active, false if completed
+     */
+    public boolean isActive() {
+        return this.currentPhase != Phase.COMPLETED;
+    }
+    
+    /**
+     * Gets all members of the current phase team
+     * @return List of member usernames in the current phase
+     */
+    public List<String> getMembers() {
+        ArrayList<String> currentTeam = getTeam();
+        return currentTeam != null ? currentTeam : new ArrayList<>();
+    }
+    
+    /**
+     * Gets the idea IDs associated with this branch.
+     * For now, returns a list containing the single associated idea ID if it exists.
+     * This method supports the UI expectation of multiple idea associations.
+     * @return List of idea IDs, empty if no idea is associated
+     */
+    public List<Integer> getIdeaIds() {
+        List<Integer> ideaIds = new ArrayList<>();
+        if (this.ideaId > 0) {
+            ideaIds.add(this.ideaId);
+        }
+        return ideaIds;
     }
 }

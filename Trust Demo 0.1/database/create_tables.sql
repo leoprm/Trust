@@ -75,3 +75,16 @@ CREATE TABLE IF NOT EXISTS need_threshold_proposal_votes (
     FOREIGN KEY (proposal_id) REFERENCES need_threshold_proposals(id) ON DELETE CASCADE,
     FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
+
+CREATE TABLE branch_phase_ratings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    branch_id INT NOT NULL,
+    phase_type ENUM('GENERATION', 'INVESTIGATION', 'DEVELOPMENT', 'PRODUCTION', 'DISTRIBUTION', 'MAINTENANCE', 'RECYCLING') NOT NULL,
+    rater_username VARCHAR(255) NOT NULL,
+    rating_value INT NOT NULL, -- Assuming rating is an integer, adjust if necessary
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
+    FOREIGN KEY (rater_username) REFERENCES users(username) ON DELETE CASCADE,
+    UNIQUE (branch_id, phase_type, rater_username) -- Ensures a user can rate a phase only once
+);

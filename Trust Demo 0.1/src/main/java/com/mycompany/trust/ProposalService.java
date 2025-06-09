@@ -140,7 +140,61 @@ public class ProposalService {
             default:
                 throw new SQLException("Unknown proposal type: " + proposalType);
         }
-        TrustSystem.processUserXpGain(voter, 5);
-        DialogFactory.showInfo("Vote Recorded", "Your vote has been recorded and you earned 5 XP.");
+        DialogFactory.showInfo("Vote Recorded", "Your vote has been recorded.");
+    }
+    
+    // Generic method to create proposals based on category
+    public static void createProposal(String title, String description, String category, String proposer) throws SQLException {
+        switch (category.toUpperCase()) {
+            case "LEVEL":
+                // Use default values for level proposals
+                createLevelProposal(proposer, 30.0, 40.0);
+                break;
+            case "BERRY_EARNING":
+                // Use default value for berry earning proposals
+                createBerryEarningProposal(proposer, 10);
+                break;
+            case "BERRY_VALIDITY":
+                // Use default value for berry validity proposals
+                createBerryValidityProposal(proposer, 12);
+                break;
+            case "BERRY_CONVERSION":
+                // Use default values for berry conversion proposals
+                createBerryConversionProposal(proposer, 80.0, 6);
+                break;
+            case "NEED_THRESHOLD":
+                // Use default values for need threshold proposals
+                createNeedThresholdProposal(proposer, 60.0, 40.0, 12);
+                break;
+            default:
+                throw new SQLException("Unknown proposal category: " + category);
+        }
+    }    // Method to vote on proposal with boolean support parameter
+    public static void voteOnProposal(int proposalId, String username, boolean support) throws SQLException {
+        User voter = DatabaseManager.getUser(username);
+        if (voter == null) {
+            throw new SQLException("User not found: " + username);
+        }
+        
+        // Determine proposal type by checking which map contains the proposal
+        String proposalType = null;
+        if (TrustSystem.levelProposals.containsKey(proposalId)) {
+            proposalType = "LEVEL";
+        } else if (TrustSystem.berryEarningProposals.containsKey(proposalId)) {
+            proposalType = "BERRY_EARNING";
+        } else if (TrustSystem.berryValidityProposals.containsKey(proposalId)) {
+            proposalType = "BERRY_VALIDITY";
+        } else if (TrustSystem.berryConversionProposals.containsKey(proposalId)) {
+            proposalType = "BERRY_CONVERSION";
+        } else if (TrustSystem.needThresholdProposals.containsKey(proposalId)) {
+            proposalType = "NEED_THRESHOLD";
+        } else {
+            throw new SQLException("Proposal not found: " + proposalId);
+        }
+        
+        // Only count support votes for now (could be extended to handle opposition)
+        if (support) {
+            voteForProposal(proposalType, proposalId, voter);
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.mycompany.trust;
 
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import java.sql.SQLException;
 
 public class SessionManager {
     private static User currentUser = null;
@@ -57,17 +58,21 @@ public class SessionManager {
         }
         return null;
     }
-    
-    public static User authenticateUser(String username, String password) {
-        if (!TrustSystem.users.containsKey(username)) {
+      public static User authenticateUser(String username, String password) {
+        try {
+            User user = DatabaseManager.getUser(username);
+            if (user == null) {
+                return null;
+            }
+            
+            if (!user.checkPassword(password)) {
+                return null;
+            }
+            
+            return user;
+        } catch (SQLException e) {
+            System.err.println("Error authenticating user " + username + ": " + e.getMessage());
             return null;
         }
-        
-        User user = TrustSystem.users.get(username);
-        if (!user.checkPassword(password)) {
-            return null;
-        }
-        
-        return user;
     }
 }
